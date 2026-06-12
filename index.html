@@ -3,258 +3,207 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Shipham Wild — Community Biodiversity Map</title>
-<meta name="description" content="A community map of conservation and biodiversity projects in and around Shipham parish, Somerset." />
+<title>Shipham Biodiversity Map</title>
+<meta name="description" content="A community map of biodiversity and conservation projects in and around Shipham parish, Somerset." />
 
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<!-- Leaflet.draw -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-<!-- Marker cluster -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-<!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
   :root{
-    --paper:#FBFAF6;
-    --stone:#F1ECE1;
-    --ink:#1E2A23;
-    --muted:#5B6A60;
-    --moss:#2F5D3A;       /* SSSI / primary green */
-    --sage:#6E8B5B;
-    --slate:#3E7CA8;      /* Local Nature Reserves */
-    --gorse:#E0A52E;      /* iNaturalist sightings */
-    --heather:#8E4A77;    /* community projects + main action */
-    --heather-dk:#763D63;
-    --line:#E2DCCF;
-    --shadow:0 6px 24px rgba(30,42,35,.14);
-    --radius:16px;
+    --paper:#FBFAF6; --stone:#F1ECE1; --ink:#1E2A23; --muted:#5B6A60;
+    --moss:#2F5D3A; --sage:#6E8B5B; --slate:#3E7CA8; --gorse:#E0A52E;
+    --heather:#8E4A77; --heather-dk:#763D63; --line:#E2DCCF;
+    --shadow:0 6px 24px rgba(30,42,35,.16); --radius:16px;
   }
-
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
-  body{
-    font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-    color:var(--ink);background:var(--paper);
-    overflow:hidden;
-    -webkit-tap-highlight-color:transparent;
-  }
-  #map{position:absolute;inset:0;background:#dfe6e3}
+  body{font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);
+    background:var(--paper);overflow:hidden;-webkit-tap-highlight-color:transparent}
+  #map{position:absolute;inset:0;background:#aab9b1}
 
-  /* ---------- Title card ---------- */
-  .brand{
-    position:absolute;top:14px;left:14px;z-index:1000;
-    background:rgba(251,250,246,.94);backdrop-filter:blur(6px);
-    border:1px solid var(--line);border-radius:var(--radius);
-    box-shadow:var(--shadow);padding:12px 16px;max-width:min(78vw,340px);
-  }
-  .brand h1{
-    font-family:"Fraunces",serif;font-weight:600;font-size:1.32rem;
-    margin:0;line-height:1.05;letter-spacing:-.01em;color:var(--moss);
-  }
+  .brand{position:absolute;top:14px;left:14px;z-index:1000;background:rgba(251,250,246,.94);
+    backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:12px 16px;max-width:min(78vw,330px)}
+  .brand h1{font-family:"Fraunces",serif;font-weight:600;font-size:1.24rem;margin:0;line-height:1.06;
+    letter-spacing:-.01em;color:var(--moss)}
   .brand h1 .leaf{color:var(--heather)}
-  .brand p{margin:.28rem 0 0;font-size:.78rem;color:var(--muted);line-height:1.3}
+  .brand p{margin:.28rem 0 0;font-size:.77rem;color:var(--muted);line-height:1.3}
 
-  /* ---------- Layers panel ---------- */
-  .panel{
-    position:absolute;top:14px;right:14px;z-index:1000;width:268px;max-width:calc(100vw - 28px);
-    background:rgba(251,250,246,.96);backdrop-filter:blur(6px);
-    border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
-    overflow:hidden;
-  }
-  .panel__head{
-    display:flex;align-items:center;justify-content:space-between;gap:8px;
-    padding:11px 14px;cursor:pointer;user-select:none;
-  }
+  .panel{position:absolute;top:14px;right:14px;z-index:1000;width:272px;max-width:calc(100vw - 28px);
+    background:rgba(251,250,246,.96);backdrop-filter:blur(6px);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .panel__head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;
+    cursor:pointer;user-select:none}
   .panel__head h2{font-family:"Fraunces",serif;font-weight:600;font-size:.96rem;margin:0}
   .panel__chev{transition:transform .25s ease;color:var(--muted);font-size:.8rem}
   .panel.collapsed .panel__chev{transform:rotate(-90deg)}
-  .panel__body{padding:2px 10px 10px;max-height:60vh;overflow:auto}
+  .panel__body{padding:2px 10px 10px;max-height:62vh;overflow:auto}
   .panel.collapsed .panel__body{display:none}
 
-  .layer{
-    display:flex;align-items:flex-start;gap:10px;padding:9px 8px;border-radius:11px;cursor:pointer;
-  }
+  .layer{display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:11px;cursor:pointer}
   .layer:hover{background:var(--stone)}
   .layer input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--moss);flex:0 0 auto;cursor:pointer}
   .swatch{width:14px;height:14px;border-radius:4px;margin-top:2px;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
+  .swatch.line{border-radius:2px;height:0;border:0;border-top:3px dashed var(--ink);width:15px;margin-top:8px}
   .layer__txt{flex:1;min-width:0}
   .layer__txt b{display:block;font-size:.85rem;font-weight:600;line-height:1.15}
   .layer__txt small{display:block;color:var(--muted);font-size:.72rem;margin-top:1px}
   .count{font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums}
 
-  .basemap{display:flex;gap:6px;margin:6px 8px 2px;border-top:1px solid var(--line);padding-top:10px}
-  .basemap button{
-    flex:1;border:1px solid var(--line);background:#fff;color:var(--ink);
-    padding:7px;border-radius:9px;font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit;
-  }
+  .basemap{margin:8px 8px 2px;border-top:1px solid var(--line);padding-top:10px}
+  .basemap small{display:block;font-size:.68rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+  .basemap .row{display:flex;gap:6px}
+  .basemap button{flex:1;border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 4px;
+    border-radius:9px;font-size:.74rem;font-weight:600;cursor:pointer;font-family:inherit}
   .basemap button.active{background:var(--moss);color:#fff;border-color:var(--moss)}
 
-  /* ---------- Primary action ---------- */
-  .fab{
-    position:absolute;right:16px;bottom:16px;z-index:1000;
-    display:inline-flex;align-items:center;gap:9px;
-    background:var(--heather);color:#fff;border:none;cursor:pointer;
-    font-family:inherit;font-weight:600;font-size:.95rem;
-    padding:14px 20px;border-radius:999px;box-shadow:var(--shadow);
-    transition:transform .15s ease, background .15s ease;
-  }
+  .fab{position:absolute;right:16px;bottom:16px;z-index:1000;display:inline-flex;align-items:center;gap:9px;
+    background:var(--heather);color:#fff;border:none;cursor:pointer;font-family:inherit;font-weight:600;
+    font-size:.95rem;padding:14px 20px;border-radius:999px;box-shadow:var(--shadow);
+    transition:transform .15s ease, background .15s ease}
   .fab:hover{background:var(--heather-dk);transform:translateY(-1px)}
   .fab svg{width:18px;height:18px}
 
-  /* drawing hint */
-  .hint{
-    position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:1200;
-    background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;
-    font-size:.85rem;font-weight:500;box-shadow:var(--shadow);display:none;align-items:center;gap:10px;
-  }
+  .hint{position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:1200;background:var(--ink);
+    color:#fff;padding:10px 18px;border-radius:999px;font-size:.85rem;font-weight:500;box-shadow:var(--shadow);
+    display:none;align-items:center;gap:10px}
   .hint.show{display:flex}
-  .hint button{background:rgba(255,255,255,.16);border:none;color:#fff;border-radius:999px;
-    padding:4px 11px;font-size:.78rem;cursor:pointer;font-family:inherit}
+  .hint button{background:rgba(255,255,255,.16);border:none;color:#fff;border-radius:999px;padding:4px 11px;
+    font-size:.78rem;cursor:pointer;font-family:inherit}
 
-  /* ---------- Form drawer ---------- */
-  .scrim{position:absolute;inset:0;background:rgba(20,30,24,.32);z-index:1500;opacity:0;
-    pointer-events:none;transition:opacity .25s ease}
+  .scrim{position:absolute;inset:0;background:rgba(20,30,24,.32);z-index:1500;opacity:0;pointer-events:none;
+    transition:opacity .25s ease}
   .scrim.show{opacity:1;pointer-events:auto}
-  .drawer{
-    position:absolute;top:0;right:0;height:100%;width:380px;max-width:100vw;z-index:1600;
-    background:var(--paper);box-shadow:-8px 0 30px rgba(20,30,24,.18);
-    transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
-    display:flex;flex-direction:column;
-  }
+  .drawer{position:absolute;top:0;right:0;height:100%;width:380px;max-width:100vw;z-index:1600;
+    background:var(--paper);box-shadow:-8px 0 30px rgba(20,30,24,.18);transform:translateX(100%);
+    transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
   .drawer.show{transform:translateX(0)}
   .drawer__head{padding:18px 20px 12px;border-bottom:1px solid var(--line)}
   .drawer__head h2{font-family:"Fraunces",serif;font-weight:600;font-size:1.2rem;margin:0;color:var(--moss)}
   .drawer__head p{margin:.3rem 0 0;font-size:.8rem;color:var(--muted)}
   .steps{display:flex;gap:14px;margin-top:12px}
   .step{display:flex;gap:7px;align-items:center;font-size:.74rem;color:var(--muted)}
-  .step b{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;
-    background:var(--stone);color:var(--ink);font-size:.7rem;font-weight:700}
+  .step b{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--stone);
+    color:var(--ink);font-size:.7rem;font-weight:700}
   .step.done b{background:var(--moss);color:#fff}
   .drawer__body{padding:16px 20px;overflow:auto;flex:1}
   .field{margin-bottom:15px}
   .field label{display:block;font-size:.8rem;font-weight:600;margin-bottom:5px}
   .field .req{color:var(--heather)}
-  .field input[type=text], .field textarea{
-    width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;
-    font-family:inherit;font-size:.9rem;background:#fff;color:var(--ink);resize:vertical;
-  }
+  .field input[type=text], .field textarea{width:100%;border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;font-family:inherit;font-size:.9rem;background:#fff;color:var(--ink);resize:vertical}
   .field input:focus, .field textarea:focus{outline:2px solid var(--sage);outline-offset:1px;border-color:var(--sage)}
   .field textarea{min-height:92px}
-  .photo-drop{
-    border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;
-    cursor:pointer;background:#fff;color:var(--muted);font-size:.83rem;
-  }
+  .photo-drop{border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;cursor:pointer;
+    background:#fff;color:var(--muted);font-size:.83rem}
   .photo-drop:hover{border-color:var(--sage);color:var(--ink)}
   .thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .thumbs figure{position:relative;margin:0}
   .thumbs img{width:64px;height:64px;object-fit:cover;border-radius:9px;display:block;border:1px solid var(--line)}
-  .thumbs button{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;
-    border:none;background:var(--ink);color:#fff;font-size:.7rem;cursor:pointer;line-height:1}
+  .thumbs button{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:none;
+    background:var(--ink);color:#fff;font-size:.7rem;cursor:pointer;line-height:1}
   .drawer__foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px}
-  .btn{flex:1;border-radius:11px;padding:13px;font-family:inherit;font-weight:600;font-size:.92rem;cursor:pointer;border:1px solid var(--line)}
+  .btn{flex:1;border-radius:11px;padding:13px;font-family:inherit;font-weight:600;font-size:.92rem;cursor:pointer;
+    border:1px solid var(--line)}
   .btn--ghost{background:#fff;color:var(--ink)}
   .btn--primary{background:var(--heather);color:#fff;border-color:var(--heather)}
   .btn--primary:disabled{opacity:.55;cursor:not-allowed}
+  .note{font-size:.74rem;color:var(--muted);background:var(--stone);border-radius:10px;padding:10px 12px;
+    margin-top:4px;line-height:1.4}
 
-  .note{font-size:.74rem;color:var(--muted);background:var(--stone);border-radius:10px;padding:10px 12px;margin-top:4px;line-height:1.4}
-
-  /* ---------- Popups ---------- */
   .leaflet-popup-content-wrapper{border-radius:14px}
-  .leaflet-popup-content{margin:13px 15px;font-family:inherit}
-  .pop h3{font-family:"Fraunces",serif;font-weight:600;margin:0 0 4px;font-size:1.02rem;color:var(--moss)}
-  .pop .tag{display:inline-block;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  .leaflet-popup-content{margin:13px 15px;font-family:inherit;width:230px!important}
+  .pop h3{font-family:"Fraunces",serif;font-weight:600;margin:0 0 5px;font-size:1.02rem;color:var(--moss);line-height:1.1}
+  .pop .tag{display:inline-block;font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
     padding:2px 8px;border-radius:999px;margin-bottom:7px}
-  .pop p{margin:0 0 6px;font-size:.84rem;line-height:1.4}
-  .pop .by{font-size:.74rem;color:var(--muted)}
+  .pop p{margin:0 0 7px;font-size:.83rem;line-height:1.42}
+  .pop .by{font-size:.73rem;color:var(--muted)}
+  .pop .pop-hero{width:100%;height:120px;object-fit:cover;border-radius:9px;margin:0 0 8px;display:block}
   .pop .photos{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .pop .photos a img{width:62px;height:62px;object-fit:cover;border-radius:8px;display:block}
   .pop a.link{color:var(--slate);font-size:.78rem;text-decoration:none;font-weight:600}
+  .pop .loading{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:7px}
+  .spin{width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--sage);border-radius:50%;
+    animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
 
-  /* toast */
+  .place-label{background:transparent;border:none;box-shadow:none;color:#fff;font-weight:700;font-size:.78rem;
+    text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.7);padding:0}
+  .place-label::before{display:none}
+
   .toast{position:absolute;left:50%;bottom:84px;transform:translateX(-50%) translateY(10px);z-index:2000;
-    background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:.85rem;
-    opacity:0;pointer-events:none;transition:all .25s ease;box-shadow:var(--shadow)}
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:.85rem;opacity:0;
+    pointer-events:none;transition:all .25s ease;box-shadow:var(--shadow);max-width:84vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
   .leaflet-control-attribution{font-size:10px}
 
-  /* Mobile */
   @media (max-width:560px){
-    .brand{max-width:60vw;padding:10px 13px}
-    .brand h1{font-size:1.1rem}
-    .panel{width:230px;top:auto;bottom:84px;right:14px}
-    .panel__body{max-height:44vh}
-    .fab{padding:13px 18px;font-size:.9rem}
+    .brand{max-width:62vw;padding:10px 13px}
+    .brand h1{font-size:1.05rem}
+    .panel{width:236px;top:auto;bottom:84px;right:14px}
+    .panel__body{max-height:42vh}
     .drawer{width:100%}
   }
-  @media (prefers-reduced-motion: reduce){
-    *{transition:none !important;animation:none !important}
-  }
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 
 <div id="map"></div>
 
-<!-- Title -->
 <div class="brand">
-  <h1>Shipham&nbsp;Wild <span class="leaf">✿</span></h1>
-  <p>A community map of nature &amp; conservation projects in and around our parish. Explore what's here — and add your own.</p>
+  <h1>Shipham Biodiversity Map <span class="leaf">✿</span></h1>
+  <p>Nature &amp; conservation across Shipham, Rowberrow and Star. Explore what's here — and add your own project.</p>
 </div>
 
-<!-- Layers -->
 <aside class="panel" id="panel" aria-label="Map layers">
   <div class="panel__head" id="panelHead" role="button" tabindex="0" aria-expanded="true">
-    <h2>What's on the map</h2>
-    <span class="panel__chev">▾</span>
+    <h2>What's on the map</h2><span class="panel__chev">▾</span>
   </div>
   <div class="panel__body">
-    <label class="layer">
-      <input type="checkbox" id="lyr-sssi" checked>
+    <label class="layer"><input type="checkbox" id="lyr-parish" checked>
+      <span class="swatch line"></span>
+      <span class="layer__txt"><b>Parish boundary</b><small>Shipham, Rowberrow &amp; Star</small></span></label>
+    <label class="layer"><input type="checkbox" id="lyr-sssi" checked>
       <span class="swatch" style="background:var(--moss)"></span>
-      <span class="layer__txt"><b>Protected wildlife sites</b><small>SSSIs — Natural England <span class="count" id="c-sssi"></span></small></span>
-    </label>
-    <label class="layer">
-      <input type="checkbox" id="lyr-lnr" checked>
+      <span class="layer__txt"><b>Protected wildlife sites</b><small>SSSIs — Natural England <span class="count" id="c-sssi"></span></small></span></label>
+    <label class="layer"><input type="checkbox" id="lyr-lnr" checked>
       <span class="swatch" style="background:var(--slate)"></span>
-      <span class="layer__txt"><b>Local nature reserves</b><small>Natural England <span class="count" id="c-lnr"></span></small></span>
-    </label>
-    <label class="layer">
-      <input type="checkbox" id="lyr-inat" checked>
+      <span class="layer__txt"><b>Local nature reserves</b><small>Natural England <span class="count" id="c-lnr"></span></small></span></label>
+    <label class="layer"><input type="checkbox" id="lyr-inat" checked>
       <span class="swatch" style="background:var(--gorse)"></span>
-      <span class="layer__txt"><b>Recent wildlife sightings</b><small>iNaturalist records <span class="count" id="c-inat"></span></small></span>
-    </label>
-    <label class="layer">
-      <input type="checkbox" id="lyr-proj" checked>
+      <span class="layer__txt"><b>Recent wildlife sightings</b><small>iNaturalist <span class="count" id="c-inat"></span></small></span></label>
+    <label class="layer"><input type="checkbox" id="lyr-proj" checked>
       <span class="swatch" style="background:var(--heather)"></span>
-      <span class="layer__txt"><b>Community projects</b><small>Added by people like you <span class="count" id="c-proj"></span></small></span>
-    </label>
+      <span class="layer__txt"><b>Community projects</b><small>Added by people like you <span class="count" id="c-proj"></span></small></span></label>
 
     <div class="basemap">
-      <button id="bm-map" class="active">Map</button>
-      <button id="bm-air">Aerial</button>
+      <small>Base map</small>
+      <div class="row">
+        <button id="bm-satos" class="active">Satellite + OS</button>
+        <button id="bm-os">OS map</button>
+        <button id="bm-sat">Satellite</button>
+      </div>
     </div>
   </div>
 </aside>
 
-<!-- Drawing hint -->
 <div class="hint" id="hint">
   <span>Tap the map to trace your project area. Double-tap to finish.</span>
   <button id="hintCancel">Cancel</button>
 </div>
 
-<!-- Add button -->
 <button class="fab" id="addBtn">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
   Add your project
 </button>
 
-<!-- Form drawer -->
 <div class="scrim" id="scrim"></div>
 <form class="drawer" id="drawer" aria-label="Add a project">
   <div class="drawer__head">
@@ -266,24 +215,16 @@
     </div>
   </div>
   <div class="drawer__body">
-    <div class="field">
-      <label for="f-name">Project name <span class="req">*</span></label>
-      <input type="text" id="f-name" maxlength="90" placeholder="e.g. Orchard hedgerow restoration" required>
-    </div>
-    <div class="field">
-      <label for="f-desc">What's happening here? <span class="req">*</span></label>
-      <textarea id="f-desc" maxlength="900" placeholder="Tell people what you're doing, why it matters, and how they can get involved." required></textarea>
-    </div>
-    <div class="field">
-      <label for="f-by">Your name or group <small style="font-weight:400;color:var(--muted)">(optional)</small></label>
-      <input type="text" id="f-by" maxlength="80" placeholder="e.g. Shipham Wildlife Group">
-    </div>
-    <div class="field">
-      <label>Photos <small style="font-weight:400;color:var(--muted)">(optional)</small></label>
+    <div class="field"><label for="f-name">Project name <span class="req">*</span></label>
+      <input type="text" id="f-name" maxlength="90" placeholder="e.g. Orchard hedgerow restoration" required></div>
+    <div class="field"><label for="f-desc">What's happening here? <span class="req">*</span></label>
+      <textarea id="f-desc" maxlength="900" placeholder="Tell people what you're doing, why it matters, and how they can get involved."></textarea></div>
+    <div class="field"><label for="f-by">Your name or group <small style="font-weight:400;color:var(--muted)">(optional)</small></label>
+      <input type="text" id="f-by" maxlength="80" placeholder="e.g. Shipham Wildlife Group"></div>
+    <div class="field"><label>Photos <small style="font-weight:400;color:var(--muted)">(optional)</small></label>
       <div class="photo-drop" id="photoDrop">📷 Tap to add photos from your phone or computer</div>
       <input type="file" id="f-photos" accept="image/*" multiple hidden>
-      <div class="thumbs" id="thumbs"></div>
-    </div>
+      <div class="thumbs" id="thumbs"></div></div>
     <div class="note" id="storageNote"></div>
   </div>
   <div class="drawer__foot">
@@ -294,87 +235,117 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Scripts -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <script>
 /* =================================================================
-   CONFIG  —  the only part you may need to edit
-   -----------------------------------------------------------------
-   The map works fully for VIEWING with no setup.
-   To let visitors SAVE projects that everyone can see (stored in YOUR
-   Google Sheet + Google Drive), paste your Google Apps Script web-app
-   URL below — the one that ends in /exec.
-   Step-by-step instructions are in README.md.
+   CONFIG — the only part you may need to edit. See README.md.
 ================================================================= */
-const SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL";   // e.g. https://script.google.com/macros/s/AKfy.../exec
+const SUPABASE_URL      = "YOUR_SUPABASE_URL";       // shared saving of projects (free)
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";  // the public "anon" key
+const OS_API_KEY        = "YOUR_OS_KEY";             // free OS Data Hub key → real OS maps
 
-const SHIPHAM = { lat: 51.3138, lng: -2.7987, zoom: 14 };
+const SHIPHAM = { lat:51.3138, lng:-2.7987, zoom:14 };
 /* ================================================================= */
 
-const backendReady = SCRIPT_URL.startsWith("https://") && SCRIPT_URL.includes("/exec");
+const sbReady = SUPABASE_URL.startsWith("https://") && !SUPABASE_ANON_KEY.includes("YOUR_");
+const sb = sbReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const osReady = OS_API_KEY && !OS_API_KEY.includes("YOUR_");
 
-/* ---------- Map & basemaps ---------- */
-const map = L.map("map", { zoomControl:false }).setView([SHIPHAM.lat, SHIPHAM.lng], SHIPHAM.zoom);
+/* ---------- Map ---------- */
+const map = L.map("map", { zoomControl:false, maxZoom:20 }).setView([SHIPHAM.lat, SHIPHAM.lng], SHIPHAM.zoom);
 L.control.zoom({ position:"bottomleft" }).addTo(map);
 
-const baseMap = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-  subdomains:"abcd", maxZoom:20,
-  attribution:'&copy; OpenStreetMap &copy; CARTO'
-}).addTo(map);
-const baseAir = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-  maxZoom:20, attribution:"Imagery &copy; Esri"
-});
+/* Base layers */
+const esriSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  { maxZoom:20, maxNativeZoom:19, attribution:"Imagery &copy; Esri" });
+const osOutdoor = osReady ? L.tileLayer(`https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=${OS_API_KEY}`,
+  { maxZoom:20, attribution:"Contains OS data &copy; Crown copyright &amp; database right" }) : null;
+const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+  { subdomains:"abcd", maxZoom:20, attribution:"&copy; OpenStreetMap &copy; CARTO" });
 
-document.getElementById("bm-map").onclick = () => { map.addLayer(baseMap); map.removeLayer(baseAir); setBM("map"); };
-document.getElementById("bm-air").onclick = () => { map.addLayer(baseAir); map.removeLayer(baseMap); setBM("air"); };
-function setBM(w){ document.getElementById("bm-map").classList.toggle("active", w==="map");
-                   document.getElementById("bm-air").classList.toggle("active", w==="air"); }
+let currentBase = [];
+function setBase(mode){
+  currentBase.forEach(l=>map.removeLayer(l)); currentBase=[];
+  if(mode==="os" && osOutdoor){ osOutdoor.setOpacity(1); add(osOutdoor); }
+  else if(mode==="sat"){ add(esriSat); }
+  else { /* satos (default) */ add(esriSat);
+    if(osOutdoor){ osOutdoor.setOpacity(.55); add(osOutdoor); } else { add(labels); } }
+  ["satos","os","sat"].forEach(m=>document.getElementById("bm-"+m).classList.toggle("active", m===mode));
+  function add(l){ l.addTo(map); currentBase.push(l); }
+}
+document.getElementById("bm-satos").onclick=()=>setBase("satos");
+document.getElementById("bm-os").onclick=()=>{ if(!osOutdoor) toast("Add a free OS key (see README) to switch on OS maps."); setBase(osOutdoor?"os":"satos"); };
+document.getElementById("bm-sat").onclick=()=>setBase("sat");
+setBase("satos");
 
-/* Village marker */
-L.circleMarker([SHIPHAM.lat, SHIPHAM.lng], {radius:6, color:"#fff", weight:2, fillColor:"#1E2A23", fillOpacity:1})
- .addTo(map).bindTooltip("Shipham", {permanent:false, direction:"top"});
-
-/* ---------- Layer groups ---------- */
-const sssiLayer = L.geoJSON(null, { style:f=>({color:"#2F5D3A",weight:2,fillColor:"#2F5D3A",fillOpacity:.14}),
-  onEachFeature:(f,l)=>l.bindPopup(designationPopup(f,"SSSI","#2F5D3A")) }).addTo(map);
-const lnrLayer  = L.geoJSON(null, { style:f=>({color:"#3E7CA8",weight:2,fillColor:"#3E7CA8",fillOpacity:.14}),
-  onEachFeature:(f,l)=>l.bindPopup(designationPopup(f,"Local Nature Reserve","#3E7CA8")) }).addTo(map);
+/* ---------- Feature layers ---------- */
+const sssiLayer = L.geoJSON(null, { style:()=>({color:"#2F5D3A",weight:2,fillColor:"#2F5D3A",fillOpacity:.16}),
+  onEachFeature:(f,l)=>bindDesignation(f,l,"SSSI","#2F5D3A") }).addTo(map);
+const lnrLayer  = L.geoJSON(null, { style:()=>({color:"#3E7CA8",weight:2,fillColor:"#3E7CA8",fillOpacity:.16}),
+  onEachFeature:(f,l)=>bindDesignation(f,l,"Local Nature Reserve","#3E7CA8") }).addTo(map);
 const inatCluster = L.markerClusterGroup({ maxClusterRadius:45, showCoverageOnHover:false }).addTo(map);
 const projLayer = L.geoJSON(null, { style:()=>({color:"#8E4A77",weight:2.5,fillColor:"#8E4A77",fillOpacity:.22}),
   onEachFeature:(f,l)=>l.bindPopup(projectPopup(f.properties)) }).addTo(map);
+const parishGroup = L.layerGroup().addTo(map);
 
+bindToggle("lyr-parish", parishGroup);
 bindToggle("lyr-sssi", sssiLayer);
-bindToggle("lyr-lnr",  lnrLayer);
+bindToggle("lyr-lnr", lnrLayer);
 bindToggle("lyr-inat", inatCluster);
 bindToggle("lyr-proj", projLayer);
-function bindToggle(id, layer){
-  document.getElementById(id).addEventListener("change", e=>{
-    e.target.checked ? map.addLayer(layer) : map.removeLayer(layer);
-  });
-}
+function bindToggle(id, layer){ document.getElementById(id).addEventListener("change", e=>{
+  e.target.checked ? map.addLayer(layer) : map.removeLayer(layer); }); }
 
 /* ---------- Helpers ---------- */
-function bboxQS(b){ return `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`; }
-function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-function pickName(p){ for(const k of ["SSSI_NAME","sssi_name","LNR_NAME","lnr_name","NAME","name","Name"]) if(p[k]) return p[k]; return "Unnamed site"; }
+const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const bboxQS = b => `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+const setCount = (id,n)=>{ const el=document.getElementById(id); if(el) el.textContent="· "+n; };
+const idOf = f => f.id ?? f.properties?.OBJECTID ?? f.properties?.objectid ?? JSON.stringify(f.geometry?.coordinates?.[0]?.[0]||f.geometry);
+function pickName(p){ for(const k in p){ if(/(sssi|lnr).*name|^name$|^par\d*nm$/i.test(k) && p[k]) return p[k]; }
+  for(const k of ["SSSI_NAME","LNR_NAME","NAME","Name","name"]) if(p[k]) return p[k]; return "Unnamed site"; }
 
-function designationPopup(f, kind, colour){
-  const p=f.properties||{}; const name=pickName(p);
-  return `<div class="pop"><span class="tag" style="background:${colour}1a;color:${colour}">${kind}</span>
-    <h3>${esc(name)}</h3><p class="by">Designated protected area · Natural England open data</p></div>`;
+/* ---------- Popups: designations (with photo + info via Wikipedia) ---------- */
+function bindDesignation(f,l,kind,colour){
+  const name=pickName(f.properties||{});
+  l._designation={kind,name,colour};
+  l.bindPopup(`<div class="pop"><span class="tag" style="background:${colour}1a;color:${colour}">${esc(kind)}</span>
+    <h3>${esc(name)}</h3><div class="loading"><span class="spin"></span> Loading details…</div></div>`,
+    {minWidth:230, maxWidth:230});
 }
+async function enrichDesignation(popup, d){
+  const base=d.name.replace(/\s*\(?\s*sssi\s*\)?\s*$/i,"").replace(/\s*local nature reserve$/i,"").trim();
+  let wiki=null;
+  for(const t of [base, d.name, base+(d.kind==="SSSI"?"":"")]){
+    try{ const r=await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(t));
+      if(r.ok){ const j=await r.json(); if(j && j.extract && j.type!=="disambiguation"){ wiki=j; break; } } }catch(e){}
+  }
+  const img=wiki?.thumbnail?.source, extract=wiki?.extract, page=wiki?.content_urls?.desktop?.page;
+  let h=`<div class="pop"><span class="tag" style="background:${d.colour}1a;color:${d.colour}">${esc(d.kind)}</span><h3>${esc(d.name)}</h3>`;
+  if(img) h+=`<img class="pop-hero" src="${esc(img)}" alt="">`;
+  h+= extract ? `<p>${esc(extract)}</p>`
+             : `<p class="by">A designated protected area, mapped from Natural England open data.</p>`;
+  h+= page ? `<a class="link" href="${esc(page)}" target="_blank" rel="noopener">More on Wikipedia →</a>`
+           : `<a class="link" href="https://www.google.com/search?q=${encodeURIComponent(d.name+" "+d.kind)}" target="_blank" rel="noopener">Search for more →</a>`;
+  popup.setContent(h+"</div>");
+}
+map.on("popupopen", e=>{
+  const s=e.popup._source;
+  if(s && s._designation && !s._enriched){ s._enriched=true; enrichDesignation(e.popup, s._designation); }
+});
+
 function projectPopup(p){
   const photos=(p.photos||[]).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt=""></a>`).join("");
   return `<div class="pop"><span class="tag" style="background:#8E4A771a;color:#8E4A77">Community project</span>
-    <h3>${esc(p.name)}</h3><p>${esc(p.description)}</p>
+    <h3>${esc(p.name)}</h3>${p.description?`<p>${esc(p.description)}</p>`:""}
     ${p.contributor?`<p class="by">By ${esc(p.contributor)}</p>`:""}
     ${photos?`<div class="photos">${photos}</div>`:""}</div>`;
 }
 
-/* ---------- Resilient ArcGIS (Natural England) loader ---------- */
+/* ---------- Natural England (resilient) ---------- */
 const NE = {
   sssi:{ url:"https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/Sites_of_Special_Scientific_Interest_England/FeatureServer/0",
          item:"f10cbb4425154bfda349ccf493487a80", resolved:null },
@@ -383,49 +354,49 @@ const NE = {
 };
 async function resolveService(cfg){
   if(cfg.resolved) return cfg.resolved;
-  try{
-    const r=await fetch(`https://www.arcgis.com/sharing/rest/content/items/${cfg.item}?f=json`);
-    const j=await r.json();
-    if(j.url){ cfg.resolved=j.url.replace(/\/$/,"")+"/0"; return cfg.resolved; }
-  }catch(e){}
+  try{ const r=await fetch(`https://www.arcgis.com/sharing/rest/content/items/${cfg.item}?f=json`);
+    const j=await r.json(); if(j.url){ cfg.resolved=j.url.replace(/\/$/,"")+"/0"; return cfg.resolved; } }catch(e){}
   return cfg.url;
 }
 async function queryNE(cfg, bounds){
-  const qs = b => `/query?where=1%3D1&geometry=${bboxQS(b)}&geometryType=esriGeometryEnvelope`
+  const qs = `/query?where=1%3D1&geometry=${bboxQS(bounds)}&geometryType=esriGeometryEnvelope`
     + `&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&returnGeometry=true&f=geojson`;
   for(const base of [cfg.url, await resolveService(cfg)]){
-    try{
-      const r=await fetch(base+qs(bounds));
-      if(!r.ok) continue;
-      const j=await r.json();
-      if(j && j.features) return j;
-    }catch(e){}
+    try{ const r=await fetch(base+qs); if(!r.ok) continue; const j=await r.json(); if(j&&j.features) return j; }catch(e){}
   }
   return null;
 }
 
-/* ---------- Loaders ---------- */
-async function loadDesignations(){
-  const b=map.getBounds();
-  const [s,l] = await Promise.all([queryNE(NE.sssi,b), queryNE(NE.lnr,b)]);
-  if(s){ sssiLayer.clearLayers(); sssiLayer.addData(s); setCount("c-sssi", s.features.length); }
-  if(l){ lnrLayer.clearLayers();  lnrLayer.addData(l);  setCount("c-lnr",  l.features.length); }
+/* ---------- Cached, non-destructive loading ----------
+   We never clear layers on pan/zoom — we only ADD features we don't
+   already have, and we only fetch when the view leaves what we've loaded.
+   This keeps popups open and stops the constant reloading.            */
+const seen = { sssi:new Set(), lnr:new Set(), inat:new Set() };
+let loadedArea = null;   // LatLngBounds already covered
+
+function mergeFeatures(layer, set, geojson, countId){
+  let added=0;
+  (geojson.features||[]).forEach(f=>{ const id=idOf(f);
+    if(!set.has(id)){ set.add(id); layer.addData(f); added++; } });
+  setCount(countId, set.size); return added;
 }
 
-async function loadINat(){
-  const b=map.getBounds();
+async function loadDesignations(b){
+  const [s,l] = await Promise.all([queryNE(NE.sssi,b), queryNE(NE.lnr,b)]);
+  if(s) mergeFeatures(sssiLayer, seen.sssi, s, "c-sssi");
+  if(l) mergeFeatures(lnrLayer,  seen.lnr,  l, "c-lnr");
+}
+async function loadINat(b){
   const u=`https://api.inaturalist.org/v1/observations?nelat=${b.getNorth()}&nelng=${b.getEast()}`
-    +`&swlat=${b.getSouth()}&swlng=${b.getWest()}&per_page=200&order=desc&order_by=created_at`
+    +`&swlat=${b.getSouth()}&swlng=${b.getWest()}&per_page=100&order=desc&order_by=created_at`
     +`&photos=true&geo=true&quality_grade=research,needs_id`;
   try{
     const r=await fetch(u); const j=await r.json();
-    inatCluster.clearLayers();
     (j.results||[]).forEach(o=>{
-      if(!o.geojson) return;
+      if(!o.geojson || seen.inat.has(o.id)) return; seen.inat.add(o.id);
       const [lng,lat]=o.geojson.coordinates;
       const common=o.taxon?.preferred_common_name || o.taxon?.name || "Unknown species";
-      const sci=o.taxon?.name || "";
-      const thumb=o.photos?.[0]?.url?.replace("square","small");
+      const sci=o.taxon?.name||""; const thumb=o.photos?.[0]?.url?.replace("square","small");
       const m=L.circleMarker([lat,lng],{radius:6,color:"#fff",weight:1.5,fillColor:"#E0A52E",fillOpacity:1});
       m.bindPopup(`<div class="pop"><span class="tag" style="background:#E0A52E1a;color:#b9831f">Wildlife sighting</span>
         <h3>${esc(common)}</h3>${sci?`<p class="by"><i>${esc(sci)}</i></p>`:""}
@@ -434,186 +405,160 @@ async function loadINat(){
         <a class="link" href="${esc(o.uri)}" target="_blank" rel="noopener">View on iNaturalist →</a></div>`);
       inatCluster.addLayer(m);
     });
-    setCount("c-inat", (j.results||[]).length);
+    setCount("c-inat", seen.inat.size);
   }catch(e){ console.warn("iNaturalist load failed", e); }
 }
 
-async function loadProjects(){
-  projLayer.clearLayers();
-  let rows=[];
-  if(backendReady){
-    try{
-      const r=await fetch(SCRIPT_URL);               // GET → JSON array of projects
-      rows = await r.json();
-      if(!Array.isArray(rows)) rows=[];
-    }catch(e){ console.warn("Could not load community projects", e); rows=[]; }
-  } else {
-    rows = sessionProjects;
+let loading=false;
+async function loadArea(force){
+  if(loading) return;
+  const view=map.getBounds();
+  if(!force && loadedArea && loadedArea.contains(view)) return;   // already covered → no fetch
+  if(map.getZoom() < 11){ return; }
+  loading=true;
+  const fetchB = view.pad(0.5);                                   // grab a generous margin
+  ["c-sssi","c-lnr","c-inat"].forEach(id=>{ const el=document.getElementById(id);
+    if(el && !el.textContent) el.textContent="· …"; });
+  await Promise.all([ loadDesignations(fetchB), loadINat(fetchB) ]);
+  loadedArea = loadedArea ? loadedArea.extend(fetchB) : fetchB;   // remember coverage
+  loading=false;
+}
+let t=null;
+map.on("moveend", ()=>{ clearTimeout(t); t=setTimeout(()=>loadArea(false), 400); });
+
+/* ---------- Parish boundary + settlement labels ---------- */
+const ONS = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Parishes_and_Non_Civil_Parished_Areas_December_2023_Boundaries_EW_BGC/FeatureServer/0";
+async function loadParish(){
+  let gj=null;
+  try{ // by name first
+    const r=await fetch(`${ONS}/query?where=${encodeURIComponent("PAR23NM='Shipham'")}&outFields=*&outSR=4326&returnGeometry=true&f=geojson`);
+    if(r.ok){ const j=await r.json(); if(j.features?.length) gj=j; }
+  }catch(e){}
+  if(!gj){ try{ // fallback: spatial, then filter to Shipham
+    const b=L.latLngBounds([SHIPHAM.lat-0.03,SHIPHAM.lng-0.05],[SHIPHAM.lat+0.03,SHIPHAM.lng+0.05]);
+    const r=await fetch(`${ONS}/query?where=1%3D1&geometry=${bboxQS(b)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&returnGeometry=true&f=geojson`);
+    if(r.ok){ const j=await r.json();
+      const feats=(j.features||[]).filter(f=>Object.values(f.properties||{}).some(v=>String(v).toLowerCase()==="shipham"));
+      if(feats.length) gj={type:"FeatureCollection",features:feats}; }
+  }catch(e){} }
+  if(gj){
+    L.geoJSON(gj, { style:()=>({color:"#1E2A23",weight:2.5,dashArray:"6 5",fill:true,fillColor:"#1E2A23",fillOpacity:.04}) })
+      .bindTooltip("Shipham civil parish (Shipham, Rowberrow & Star)", {sticky:true})
+      .addTo(parishGroup);
   }
-  rows.forEach(p=>{
-    const geom = typeof p.geom==="string" ? safeJSON(p.geom) : p.geom;
-    const photos = typeof p.photos==="string" ? (safeJSON(p.photos)||[]) : (p.photos||[]);
-    if(!geom) return;
-    projLayer.addData({ type:"Feature", geometry:geom,
-      properties:{ name:p.name, description:p.description, contributor:p.contributor, photos:photos } });
+  // Labelled settlement markers (parish is one boundary; these mark all three places)
+  const places=[
+    {n:"Shipham",   lat:51.3138, lng:-2.7987},
+    {n:"Rowberrow", lat:51.3203, lng:-2.7925},
+    {n:"Star",      lat:51.3247, lng:-2.8205}
+  ];
+  places.forEach(p=>{
+    L.circleMarker([p.lat,p.lng],{radius:5,color:"#fff",weight:2,fillColor:"#1E2A23",fillOpacity:1})
+      .bindTooltip(p.n,{permanent:true,direction:"right",className:"place-label",offset:[8,0]})
+      .addTo(parishGroup);
   });
+}
+
+/* ---------- Projects ---------- */
+const sessionProjects=[];
+async function loadProjects(){
+  projLayer.clearLayers(); let rows=[];
+  if(sbReady){ const {data,error}=await sb.from("projects").select("*").order("created_at",{ascending:false});
+    if(error) console.warn(error); else rows=data||[]; } else rows=sessionProjects;
+  rows.forEach(p=>{ if(!p.geom) return;
+    projLayer.addData({type:"Feature",geometry:p.geom,
+      properties:{name:p.name,description:p.description,contributor:p.contributor,photos:p.photos||[]}}); });
   setCount("c-proj", rows.length);
 }
-function safeJSON(s){ try{ return JSON.parse(s); }catch(e){ return null; } }
 
-function setCount(id,n){ const el=document.getElementById(id); if(el) el.textContent=`· ${n}`; }
-
-/* Debounced reload on pan/zoom (only when zoomed in enough) */
-let t=null;
-function refresh(){
-  if(map.getZoom() < 11) return;
-  clearTimeout(t);
-  t=setTimeout(()=>{ loadDesignations(); loadINat(); }, 500);
-}
-map.on("moveend", refresh);
-
-/* ---------- Panel collapse ---------- */
+/* ---------- Panel & toast ---------- */
 const panel=document.getElementById("panel"), pHead=document.getElementById("panelHead");
 function togglePanel(){ panel.classList.toggle("collapsed");
   pHead.setAttribute("aria-expanded", String(!panel.classList.contains("collapsed"))); }
 pHead.addEventListener("click", togglePanel);
 pHead.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); togglePanel(); }});
-if(window.innerWidth < 560) panel.classList.add("collapsed");
+if(window.innerWidth<560) panel.classList.add("collapsed");
 
-/* ---------- Toast ---------- */
 const toastEl=document.getElementById("toast"); let toastT;
-function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show");
-  clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),3200); }
+function toast(m){ toastEl.textContent=m; toastEl.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),3400); }
 
-/* ================= ADD-A-PROJECT FLOW ================= */
-const sessionProjects = [];          // used only when shared storage isn't configured
-let drawer=document.getElementById("drawer"), scrim=document.getElementById("scrim");
+/* ================= ADD-A-PROJECT ================= */
+const drawer=document.getElementById("drawer"), scrim=document.getElementById("scrim");
 let drawHandler=null, tempLayer=null, photoFiles=[];
+document.getElementById("storageNote").innerHTML = sbReady
+  ? "Your project will appear on the map for everyone, right away."
+  : "<b>Preview mode.</b> This map isn't connected to shared storage yet, so projects you add show only in your browser until you refresh. See README.md to switch on shared saving (free).";
 
-const storageNote=document.getElementById("storageNote");
-storageNote.innerHTML = backendReady
-  ? "Your project will be saved to the parish Google account and appear on the map for everyone."
-  : "<b>Preview mode.</b> This map isn't connected to shared storage yet, so projects you add are visible only in your browser until you refresh. See README.md to switch on shared saving with your Google account (free).";
-
-/* Start drawing */
 document.getElementById("addBtn").addEventListener("click", startDraw);
-function startDraw(){
-  closeDrawer(); resetTemp();
+function startDraw(){ closeDrawer(); resetTemp();
   document.getElementById("hint").classList.add("show");
   document.getElementById("addBtn").style.display="none";
-  drawHandler = new L.Draw.Polygon(map, { shapeOptions:{ color:"#8E4A77", weight:2.5, fillOpacity:.22 }, allowIntersection:false });
+  drawHandler=new L.Draw.Polygon(map,{shapeOptions:{color:"#8E4A77",weight:2.5,fillOpacity:.22},allowIntersection:false});
   drawHandler.enable();
 }
 document.getElementById("hintCancel").addEventListener("click", cancelDraw);
-function cancelDraw(){
-  if(drawHandler){ drawHandler.disable(); drawHandler=null; }
-  document.getElementById("hint").classList.remove("show");
-  document.getElementById("addBtn").style.display="";
-}
-map.on(L.Draw.Event.CREATED, e=>{
-  tempLayer=e.layer; tempLayer.setStyle?.({color:"#8E4A77",weight:2.5,fillOpacity:.22});
-  tempLayer.addTo(map); map.fitBounds(tempLayer.getBounds(), {padding:[60,60], maxZoom:17});
-  cancelDraw(); openDrawer();
-  document.getElementById("step1").classList.add("done");
-});
+function cancelDraw(){ if(drawHandler){ drawHandler.disable(); drawHandler=null; }
+  document.getElementById("hint").classList.remove("show"); document.getElementById("addBtn").style.display=""; }
+map.on(L.Draw.Event.CREATED, e=>{ tempLayer=e.layer;
+  tempLayer.setStyle?.({color:"#8E4A77",weight:2.5,fillOpacity:.22}); tempLayer.addTo(map);
+  map.fitBounds(tempLayer.getBounds(),{padding:[60,60],maxZoom:17}); cancelDraw(); openDrawer();
+  document.getElementById("step1").classList.add("done"); });
 
-/* Drawer open/close */
-function openDrawer(){ scrim.classList.add("show"); drawer.classList.add("show"); setTimeout(()=>document.getElementById("f-name").focus(),300); }
+function openDrawer(){ scrim.classList.add("show"); drawer.classList.add("show");
+  setTimeout(()=>document.getElementById("f-name").focus(),300); }
 function closeDrawer(){ scrim.classList.remove("show"); drawer.classList.remove("show"); }
 function resetTemp(){ if(tempLayer){ map.removeLayer(tempLayer); tempLayer=null; }
   photoFiles=[]; renderThumbs(); document.getElementById("step1").classList.remove("done"); }
 document.getElementById("cancelBtn").addEventListener("click", ()=>{ closeDrawer(); resetTemp();
-  document.getElementById("drawer").reset(); document.getElementById("addBtn").style.display=""; });
-scrim.addEventListener("click", ()=>{ closeDrawer(); });
+  drawer.reset(); document.getElementById("addBtn").style.display=""; });
+scrim.addEventListener("click", closeDrawer);
 
-/* Photos */
 const photoInput=document.getElementById("f-photos");
 document.getElementById("photoDrop").addEventListener("click", ()=>photoInput.click());
-photoInput.addEventListener("change", ()=>{ for(const f of photoInput.files){ if(photoFiles.length<6) photoFiles.push(f); } renderThumbs(); photoInput.value=""; });
-function renderThumbs(){
-  const box=document.getElementById("thumbs"); box.innerHTML="";
-  photoFiles.forEach((f,i)=>{
-    const url=URL.createObjectURL(f);
-    const fig=document.createElement("figure");
+photoInput.addEventListener("change", ()=>{ for(const f of photoInput.files){ if(photoFiles.length<6) photoFiles.push(f); }
+  renderThumbs(); photoInput.value=""; });
+function renderThumbs(){ const box=document.getElementById("thumbs"); box.innerHTML="";
+  photoFiles.forEach((f,i)=>{ const url=URL.createObjectURL(f); const fig=document.createElement("figure");
     fig.innerHTML=`<img src="${url}" alt=""><button type="button" aria-label="Remove photo">×</button>`;
-    fig.querySelector("button").onclick=()=>{ photoFiles.splice(i,1); renderThumbs(); };
-    box.appendChild(fig);
-  });
-}
+    fig.querySelector("button").onclick=()=>{ photoFiles.splice(i,1); renderThumbs(); }; box.appendChild(fig); }); }
 
-/* Resize images before upload (keeps uploads fast & storage small) */
-function resizeImage(file, max=1600, quality=.82){
-  return new Promise(res=>{
-    const img=new Image(); img.onload=()=>{
-      let {width:w,height:h}=img;
-      if(w>max||h>max){ const s=Math.min(max/w,max/h); w=Math.round(w*s); h=Math.round(h*s); }
-      const c=document.createElement("canvas"); c.width=w; c.height=h;
-      c.getContext("2d").drawImage(img,0,0,w,h);
-      c.toBlob(b=>res(b||file), "image/jpeg", quality);
-    };
-    img.onerror=()=>res(file);
-    img.src=URL.createObjectURL(file);
-  });
-}
+function resizeImage(file,max=1600,q=.82){ return new Promise(res=>{ const img=new Image();
+  img.onload=()=>{ let {width:w,height:h}=img; if(w>max||h>max){ const s=Math.min(max/w,max/h); w=Math.round(w*s); h=Math.round(h*s); }
+    const c=document.createElement("canvas"); c.width=w; c.height=h; c.getContext("2d").drawImage(img,0,0,w,h);
+    c.toBlob(b=>res(b||file),"image/jpeg",q); }; img.onerror=()=>res(file); img.src=URL.createObjectURL(file); }); }
 
-/* Read a blob as a base64 string (without the data: prefix) for upload */
-function blobToBase64(blob){
-  return new Promise((res,rej)=>{
-    const r=new FileReader();
-    r.onload=()=>res(String(r.result).split(",")[1]);
-    r.onerror=rej;
-    r.readAsDataURL(blob);
-  });
-}
-
-/* Submit */
-document.getElementById("drawer").addEventListener("submit", async e=>{
+drawer.addEventListener("submit", async e=>{
   e.preventDefault();
   if(!tempLayer){ toast("Please draw your project area on the map first."); return; }
   const name=document.getElementById("f-name").value.trim();
   const desc=document.getElementById("f-desc").value.trim();
   const by  =document.getElementById("f-by").value.trim();
-  if(!name||!desc){ toast("Please add a name and description."); return; }
-
-  const saveBtn=document.getElementById("saveBtn");
-  saveBtn.disabled=true; saveBtn.textContent="Saving…";
+  if(!name||!desc){ toast("Please add a name and a short description."); return; }
+  const saveBtn=document.getElementById("saveBtn"); saveBtn.disabled=true; saveBtn.textContent="Saving…";
   const geom=tempLayer.toGeoJSON().geometry;
-
   try{
-    if(backendReady){
-      // Encode resized photos as base64 to send to the Apps Script
-      const photos=[];
-      for(const f of photoFiles){
-        const blob=await resizeImage(f);
-        photos.push(await blobToBase64(blob));
-      }
-      const payload={ action:"add", name, description:desc, contributor:by||"", geom, photos };
-      // NOTE: a plain string body keeps this a "simple" request, so the browser
-      // doesn't send a CORS preflight that Apps Script can't answer.
-      const r=await fetch(SCRIPT_URL, { method:"POST", body:JSON.stringify(payload) });
-      const res=await r.json();
-      if(!res.ok) throw new Error(res.error||"save failed");
-      toast("Thank you — your project is now on the map.");
-    } else {
-      // preview mode: keep in-session only, with local object URLs for photos
-      const photoUrls = photoFiles.map(f=>URL.createObjectURL(f));
-      sessionProjects.unshift({ name, description:desc, contributor:by||null, geom, photos:photoUrls });
-      toast("Added in preview. Connect storage (README) to share it.");
-    }
-    resetTemp(); closeDrawer(); document.getElementById("drawer").reset();
-    document.getElementById("addBtn").style.display="";
+    let urls=[];
+    if(sbReady){
+      for(let i=0;i<photoFiles.length;i++){ const blob=await resizeImage(photoFiles[i]);
+        const path=`${Date.now()}-${i}-${Math.random().toString(36).slice(2,7)}.jpg`;
+        const {error:upErr}=await sb.storage.from("project-photos").upload(path,blob,{contentType:"image/jpeg"});
+        if(upErr) throw upErr;
+        urls.push(sb.storage.from("project-photos").getPublicUrl(path).data.publicUrl); }
+      const {error}=await sb.from("projects").insert({name,description:desc,contributor:by||null,geom,photos:urls});
+      if(error) throw error; toast("Thank you — your project is now on the map.");
+    } else { urls=photoFiles.map(f=>URL.createObjectURL(f));
+      sessionProjects.unshift({name,description:desc,contributor:by||null,geom,photos:urls});
+      toast("Added in preview. Connect storage (README) to share it."); }
+    resetTemp(); closeDrawer(); drawer.reset(); document.getElementById("addBtn").style.display="";
     await loadProjects();
-  }catch(err){
-    console.error(err);
-    toast("Sorry — saving failed. Please try again.");
-  }finally{
-    saveBtn.disabled=false; saveBtn.textContent="Save project";
-  }
+  }catch(err){ console.error(err); toast("Sorry — saving failed. Please try again."); }
+  finally{ saveBtn.disabled=false; saveBtn.textContent="Save project"; }
 });
 
 /* ---------- Go ---------- */
-loadDesignations();
-loadINat();
+loadArea(true);
+loadParish();
 loadProjects();
 </script>
 </body>
