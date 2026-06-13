@@ -210,8 +210,8 @@
     <label class="layer"><input type="checkbox" id="lyr-flood">
       <span class="swatch" style="background:#5DA8E0"></span>
       <span class="layer__txt"><b>Flood risk</b><small>Environment Agency <span class="count" id="c-flood"></span></small></span></label>
-    <label class="layer"><input type="checkbox" id="lyr-prow">
-      <span class="swatch" style="background:#FF6D00;height:4px;margin-top:7px;border-radius:2px"></span>
+    <label class="layer"><input type="checkbox" id="lyr-prow" checked>
+      <span class="swatch" style="background:transparent;height:0;border:0;border-top:3px dashed #1B7A2F;width:15px;margin-top:8px;border-radius:0"></span>
       <span class="layer__txt"><b>Public rights of way</b><small>footpaths &amp; bridleways <span class="count" id="c-prow"></span></small></span></label>
     <label class="layer"><input type="checkbox" id="lyr-inspire">
       <span class="swatch" style="background:#C0651E"></span>
@@ -302,7 +302,7 @@ const CONTEXT_LAYERS = [
     style:{color:"#2E78B5",weight:0.5,fillColor:"#5DA8E0",fillOpacity:.45},
     sources:[ {item:"f8488c24a34f4456a69abd894a2ba180"} ] },
   { key:"prow", label:"Public rights of way", sub:"footpaths, bridleways & byways",
-    style:{color:"#FF6D00",weight:2.5,opacity:.95,fill:false},
+    style:{color:"#1B7A2F",weight:2.5,opacity:.95,dashArray:"6 6",fill:false},
     sources:[ {geojson:"shipham-prow.geojson"} ] },
   { key:"inspire", label:"Land Registry (INSPIRE)", sub:"property extents",
     style:{color:"#C0651E",weight:0.7,fill:false},
@@ -464,12 +464,16 @@ function clipToBuffer(f, buf){
       try{ return turf.booleanIntersects(f, buf) ? f : null; }catch(e){ return f; }
     }
     if(t==="LineString"||t==="MultiLineString"){
-      let polys; try{ polys = turf.flatten(buf).features; }catch(_){ polys=[buf]; }
+      let buffPolys; try{ buffPolys = turf.flatten(buf).features; }catch(_){ buffPolys=[buf]; }
+      let lines;     try{ lines = turf.flatten(f).features; }catch(_){ lines=[f]; }
       const kept=[];
-      for(const poly of polys){
-        let segs; try{ segs=turf.lineSplit(f, poly).features; }catch(_){ segs=[f]; }
-        for(const seg of segs){ const cs=seg.geometry.coordinates;
-          if(turf.booleanPointInPolygon(cs[Math.floor(cs.length/2)], poly)) kept.push(cs); }
+      for(const line of lines){
+        for(const poly of buffPolys){
+          let segs=[line];                               // default: whole line (covers fully-inside paths)
+          try{ const sp=turf.lineSplit(line, poly).features; if(sp && sp.length) segs=sp; }catch(_){}
+          for(const seg of segs){ const cs=seg.geometry.coordinates;
+            if(cs.length>=2 && turf.booleanPointInPolygon(cs[Math.floor(cs.length/2)], poly)) kept.push(cs); }
+        }
       }
       if(!kept.length) return null;
       return {type:"Feature", properties:f.properties, geometry:{type:"MultiLineString", coordinates:kept}};
@@ -791,7 +795,11 @@ CONTEXT_LAYERS.forEach(cfg=>{
 });
 
 /* ---------- Go ---------- */
-(async()=>{ await loadParish(); loadArea(true); })();   // parish first → buffer ready → overlays clipped
+(async()=>{ await loadParish(); loadArea(true);
+  // switch on any context layers that are ticked by default (e.g. rights of way)
+  CONTEXT_LAYERS.forEach(cfg=>{ const cb=document.getElementById("lyr-"+cfg.key);
+    if(cb && cb.checked){ map.addLayer(cfg.layer); loadContext(cfg); } });
+})();   // parish first → buffer ready → overlays clipped
 loadProjects();
 
 } /* ===== end initApp ===== */
