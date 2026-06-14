@@ -134,6 +134,11 @@
   .pop .photos{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .pop .photos a img{width:62px;height:62px;object-fit:cover;border-radius:8px;display:block}
   .pop a.link{color:var(--slate);font-size:.78rem;text-decoration:none;font-weight:600}
+  .popbtns{display:flex;gap:8px;margin-top:11px}
+  .popbtn{flex:1;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px;
+    font-family:inherit;font-size:.78rem;font-weight:600;cursor:pointer}
+  .popbtn:hover{background:var(--stone)}
+  .popbtn.danger{color:#B3261E;border-color:#eec4c0}
   .pop .loading{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:7px}
   .spin{width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--sage);border-radius:50%;
     animation:sp .8s linear infinite}
@@ -225,6 +230,9 @@
         <button id="bm-sat">Satellite</button>
       </div>
     </div>
+    <div style="border-top:1px solid var(--line);margin:8px 8px 0;padding-top:8px">
+      <button id="adminBtn" style="width:100%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px;border-radius:9px;font-size:.73rem;font-weight:600;cursor:pointer;font-family:inherit">Manage as admin</button>
+    </div>
   </div>
 </aside>
 
@@ -241,7 +249,7 @@
 <div class="scrim" id="scrim"></div>
 <form class="drawer" id="drawer" aria-label="Add a project">
   <div class="drawer__head">
-    <h2>Add your project</h2>
+    <h2 id="drawerTitle">Add your project</h2>
     <p>Share a conservation or wildlife project you're working on.</p>
     <div class="steps">
       <span class="step" id="step1"><b>1</b> Draw the area</span>
@@ -354,7 +362,8 @@ const lnrLayer  = L.geoJSON(null, { style:()=>({color:"#3E7CA8",weight:2,fillCol
 const inatCluster = L.markerClusterGroup({ maxClusterRadius:45, showCoverageOnHover:false }).addTo(map);
 let inatTiles = null;   // fallback tile layer, used only if the live API can't be reached
 const projLayer = L.geoJSON(null, { style:()=>({color:"#8E4A77",weight:2.5,fillColor:"#8E4A77",fillOpacity:.22}),
-  onEachFeature:(f,l)=>l.bindPopup(projectPopup(f.properties)) }).addTo(map);
+  onEachFeature:(f,l)=>{ l._project=f.properties; if(f.properties.id) projectLayers[f.properties.id]=l;
+    l.bindPopup(projectPopup(f.properties)); } }).addTo(map);
 const parishGroup = L.layerGroup().addTo(map);
 
 bindToggle("lyr-parish", parishGroup);
@@ -400,14 +409,22 @@ async function enrichDesignation(popup, d){
   popup.setContent(h+"</div>");
 }
 map.on("popupopen", e=>{ const s=e.popup._source;
-  if(s && s._designation && !s._enriched){ s._enriched=true; enrichDesignation(e.popup, s._designation); } });
+  if(s && s._designation && !s._enriched){ s._enriched=true; enrichDesignation(e.popup, s._designation); }
+  if(s && s._project){ const el=e.popup.getElement();
+    const eb=el && el.querySelector("[data-edit]"); if(eb) eb.onclick=()=>startEdit(eb.getAttribute("data-edit"));
+    const db=el && el.querySelector("[data-del]"); if(db) db.onclick=()=>deleteProject(db.getAttribute("data-del")); }
+});
 
 function projectPopup(p){
   const photos=(p.photos||[]).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt=""></a>`).join("");
+  const canEdit = p.id && (isMine(p.id) || adminMode);
+  const controls = canEdit
+    ? `<div class="popbtns"><button type="button" class="popbtn" data-edit="${esc(p.id)}">Edit</button>`
+      + `<button type="button" class="popbtn danger" data-del="${esc(p.id)}">Delete</button></div>` : "";
   return `<div class="pop"><span class="tag" style="background:#8E4A771a;color:#8E4A77">Community project</span>
     <h3>${esc(p.name)}</h3>${p.description?`<p>${esc(p.description)}</p>`:""}
     ${p.contributor?`<p class="by">By ${esc(p.contributor)}</p>`:""}
-    ${photos?`<div class="photos">${photos}</div>`:""}</div>`;
+    ${photos?`<div class="photos">${photos}</div>`:""}${controls}</div>`;
 }
 
 /* ---------- Natural England (resilient) ---------- */
@@ -604,9 +621,20 @@ async function loadParish(){
 }
 
 /* ---------- Projects ---------- */
+/* ---------- Ownership (per-project token in this browser + admin) ---------- */
+const OWN_KEY="shipham_my_projects";
+function ownStore(){ try{ return JSON.parse(localStorage.getItem(OWN_KEY)||"{}"); }catch(e){ return {}; } }
+function rememberOwn(id,token){ try{ const s=ownStore(); s[id]=token; localStorage.setItem(OWN_KEY,JSON.stringify(s)); }catch(e){} }
+function myToken(id){ return ownStore()[id]||null; }
+function isMine(id){ return !!myToken(id); }
+let adminMode=false, adminPass=null;
+try{ const ap=sessionStorage.getItem("shipham_admin"); if(ap){ adminPass=ap; adminMode=true; } }catch(e){}
+const projectLayers={};
+let editId=null, editLayer=null;
+
 const sessionProjects=[];
 async function loadProjects(){
-  projLayer.clearLayers(); let rows=[];
+  projLayer.clearLayers(); for(const k in projectLayers) delete projectLayers[k]; let rows=[];
   if(gasReady){
     try{ const r=await fetch(APPS_SCRIPT_URL); const j=await r.json(); if(j && j.ok) rows=j.projects||[]; }
     catch(e){ console.warn("Couldn't load projects from Google backend", e); }
@@ -616,8 +644,37 @@ async function loadProjects(){
   } else rows=sessionProjects;
   rows.forEach(p=>{ if(!p.geom) return;
     projLayer.addData({type:"Feature",geometry:p.geom,
-      properties:{name:p.name,description:p.description,contributor:p.contributor,photos:p.photos||[]}}); });
+      properties:{id:p.id,name:p.name,description:p.description,contributor:p.contributor,photos:p.photos||[]}}); });
   setCount("c-proj", rows.length);
+}
+
+/* ---------- Edit / delete a project ---------- */
+function startEdit(id){
+  const l=projectLayers[id]; if(!l) return;
+  if(!gasReady){ toast("Editing needs the Google backend."); return; }
+  const p=l._project||{};
+  map.closePopup();
+  editId=id; editLayer=l;
+  try{ l.editing.enable(); }catch(e){}
+  try{ map.fitBounds(l.getBounds(),{padding:[60,60],maxZoom:17}); }catch(e){}
+  document.getElementById("f-name").value=p.name||"";
+  document.getElementById("f-desc").value=p.description||"";
+  document.getElementById("f-by").value=p.contributor||"";
+  document.getElementById("drawerTitle").textContent="Edit project";
+  document.getElementById("step1").innerHTML="<b>1</b> Adjust the area (drag the dots)";
+  document.getElementById("step1").classList.add("done");
+  document.getElementById("addBtn").style.display="none";
+  scrim.classList.add("show"); drawer.classList.add("show");
+}
+async function deleteProject(id){
+  if(!gasReady){ toast("Deleting needs the Google backend."); return; }
+  if(!confirm("Delete this project? This can't be undone.")) return;
+  try{
+    const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify({ action:"delete", id, token:myToken(id), admin:adminPass }) });
+    const j=await r.json().catch(()=>({ok:true}));
+    if(j && j.ok===false) throw new Error(j.error||"delete failed");
+    toast("Project deleted."); map.closePopup(); await loadProjects();
+  }catch(e){ console.error(e); toast("Couldn't delete — you may not have permission."); }
 }
 
 /* ---------- Panel & toast ---------- */
@@ -634,6 +691,23 @@ function toggleBrand(){ brand.classList.toggle("collapsed");
 brandHead.addEventListener("click", toggleBrand);
 brandHead.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggleBrand(); }});
 if(window.innerWidth<560) brand.classList.add("collapsed");
+
+const adminBtn=document.getElementById("adminBtn");
+function refreshAdminBtn(){ adminBtn.textContent = adminMode ? "Admin mode: on (tap to exit)" : "Manage as admin"; }
+refreshAdminBtn();
+adminBtn.addEventListener("click", async ()=>{
+  if(adminMode){ adminMode=false; adminPass=null; try{ sessionStorage.removeItem("shipham_admin"); }catch(e){}
+    refreshAdminBtn(); await loadProjects(); toast("Admin mode off."); return; }
+  if(!gasReady){ toast("Admin needs the Google backend."); return; }
+  const pw=prompt("Enter the admin password:"); if(!pw) return;
+  try{
+    const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify({ action:"verifyAdmin", admin:pw }) });
+    const j=await r.json().catch(()=>({ok:false}));
+    if(j && j.ok){ adminMode=true; adminPass=pw; try{ sessionStorage.setItem("shipham_admin",pw); }catch(e){}
+      refreshAdminBtn(); toast("Admin mode on — you can edit or delete any project."); await loadProjects(); }
+    else toast("That password wasn't recognised.");
+  }catch(e){ toast("Couldn't verify right now."); }
+});
 
 const toastEl=document.getElementById("toast"); let toastT;
 function toast(m){ toastEl.textContent=m; toastEl.classList.add("show");
@@ -666,12 +740,20 @@ function openDrawer(){ scrim.classList.add("show"); drawer.classList.add("show")
 function closeDrawer(){ scrim.classList.remove("show"); drawer.classList.remove("show"); }
 function resetTemp(){ if(tempLayer){ map.removeLayer(tempLayer); tempLayer=null; }
   photoFiles=[]; renderThumbs(); document.getElementById("step1").classList.remove("done"); }
-// Close the form, clear it, drop the draft polygon, and return to the map.
-function hideDrawer(){ closeDrawer(); resetTemp(); drawer.reset();
+// Close the form, clear it, drop any draft/edit, and return to the map.
+function closeForm(opts){ opts=opts||{};
+  closeDrawer(); resetTemp(); drawer.reset();
   document.getElementById("hint").classList.remove("show");
-  document.getElementById("addBtn").style.display=""; }
-document.getElementById("cancelBtn").addEventListener("click", hideDrawer);
-scrim.addEventListener("click", hideDrawer);
+  document.getElementById("addBtn").style.display="";
+  document.getElementById("drawerTitle").textContent="Add your project";
+  document.getElementById("step1").innerHTML="<b>1</b> Draw the area";
+  const wasEdit=!!editId;
+  if(editLayer){ try{ editLayer.editing.disable(); }catch(e){} }
+  editId=null; editLayer=null;
+  if(opts.revert && wasEdit) loadProjects();   // discard unsaved shape changes
+}
+document.getElementById("cancelBtn").addEventListener("click", ()=>closeForm({revert:true}));
+scrim.addEventListener("click", ()=>closeForm({revert:true}));
 
 const photoInput=document.getElementById("f-photos");
 document.getElementById("photoDrop").addEventListener("click", ()=>photoInput.click());
@@ -690,24 +772,30 @@ const blobToDataURL = b => new Promise(r=>{ const fr=new FileReader(); fr.onload
 
 drawer.addEventListener("submit", async e=>{
   e.preventDefault();
-  if(!tempLayer){ toast("Please draw your project area on the map first."); return; }
   const name=document.getElementById("f-name").value.trim();
   const desc=document.getElementById("f-desc").value.trim();
   const by  =document.getElementById("f-by").value.trim();
   if(!name||!desc){ toast("Please add a name and a short description."); return; }
-  const geom=tempLayer.toGeoJSON().geometry;
+  const editing=!!editId, targetId=editId;
+  let geom;
+  if(editing){ try{ geom=editLayer.toGeoJSON().geometry; }catch(_){ } }
+  else { if(!tempLayer){ toast("Please draw your project area on the map first."); return; } geom=tempLayer.toGeoJSON().geometry; }
   const files=photoFiles.slice();
-  hideDrawer();                       // return to the map straight away
-  toast("Saving your project…");
+  closeForm();                        // return to the map straight away
+  toast(editing ? "Saving changes…" : "Saving your project…");
   try{
     if(gasReady){
       const photos=[];
       for(const f of files){ photos.push(await blobToDataURL(await resizeImage(f))); }
+      const body = editing
+        ? { action:"update", id:targetId, token:myToken(targetId), admin:adminPass, name, description:desc, contributor:by||null, geom, photos }
+        : { name, description:desc, contributor:by||null, geom, photos };
       // text/plain body keeps it a "simple" request (no CORS preflight to Apps Script)
-      const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify({ name, description:desc, contributor:by||null, geom, photos }) });
+      const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify(body) });
       const j=await r.json().catch(()=>({ok:true}));
       if(j && j.ok===false) throw new Error(j.error||"save failed");
-      toast("Thank you — your project is now on the map.");
+      if(!editing && j && j.id && j.token) rememberOwn(j.id, j.token);
+      toast(editing ? "Your changes are saved." : "Thank you — your project is now on the map.");
     } else if(sbReady){
       const urls=[];
       for(let i=0;i<files.length;i++){ const blob=await resizeImage(files[i]);
@@ -723,7 +811,7 @@ drawer.addEventListener("submit", async e=>{
       toast("Added in preview. Connect storage (README) to share it.");
     }
     await loadProjects();
-  }catch(err){ console.error(err); toast("Sorry — saving failed. Please try again."); }
+  }catch(err){ console.error(err); toast("Sorry — saving failed. Please try again."); if(editing) loadProjects(); }
 });
 
 /* ---------- Context layers (lazy: fetched only when switched on) ---------- */
