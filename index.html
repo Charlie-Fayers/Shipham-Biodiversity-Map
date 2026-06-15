@@ -929,15 +929,10 @@ async function loadContext(cfg){
   cfg._loaded=true; cfg._loading=false;
   if(el) el.textContent="· "+cfg.layer.getLayers().length;
   if(!any) toast(`Couldn't load ${cfg.label} just now.`);
-  syncCtxCanvas();                 // ensure the canvas is drawn at the current zoom once loaded
 }
-const ctxCanvas = L.canvas({ padding:0.5 });   // canvas renderer — fast with many polygons
-function syncCtxCanvas(){ try{ if(ctxCanvas._map){ ctxCanvas._reset(); } }catch(e){} }
-map.on("zoomend", syncCtxCanvas);   // repaint cleanly if a zoom happened mid-load
 CONTEXT_LAYERS.forEach(cfg=>{
   cfg._c = cfg.colorBy ? "#4E8E63" : (cfg.style.fillColor || cfg.style.color);
   cfg.layer = L.geoJSON(null, {
-    renderer: ctxCanvas,
     style: f => { const p=f.properties||{};
       if(p.__fill) return Object.assign({}, cfg.style, { fillColor:p.__fill });
       if(cfg.colorBy) return Object.assign({}, cfg.style, { fillColor: habitatColor(fieldVal(p, cfg.colorBy)) });
