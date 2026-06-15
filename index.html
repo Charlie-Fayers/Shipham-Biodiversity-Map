@@ -307,10 +307,8 @@ const SHIPHAM = { lat:51.3138, lng:-2.7987, zoom:14 };
 const CONTEXT_LAYERS = [
   { key:"habitats", label:"Habitats & woodland", sub:"priority habitats + woodland + trees",
     style:{stroke:false,fillOpacity:.6}, fastClip:true,
-    colorBy:["Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","CATEGORY","Category","Woodland_Type"],
-    sources:[ {item:"39403df11c8044d998772db5b54ad86c"},                       // NE priority habitats (coloured by type)
-              {item:"0682c7cb180e4abe9dee7e4d5cc35784", fill:"#2E7D32"},        // NFI woodland — all green
-              {url:"https://services-eu1.arcgis.com/B07JPhDOjwgXOYvb/arcgis/rest/services/Trees_Outside_Woodland_view/FeatureServer/2", fill:"#2E7D32"} ] }, // Trees Outside Woodland — all green
+    colorBy:["hab","Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","CATEGORY","Category","Woodland_Type"],
+    sources:[ {geojson:"shipham-habitats.geojson"} ] },
   { key:"flood", label:"Flood risk (rivers & sea)", sub:"Environment Agency",
     style:{color:"#2E78B5",weight:0.5,fillColor:"#5DA8E0",fillOpacity:.45},
     sources:[ {item:"a29d804c91174ef9a4382ae182da9051"} ] },
@@ -889,7 +887,7 @@ function habitatColor(name){
 }
 function fieldVal(p, keys){ for(const k of keys){ if(p && p[k]!=null && p[k]!=="") return String(p[k]); } return ""; }
 function contextPopup(cfg, p){
-  const fields=["ROW_TYPE","PROW_TYPE","ROWTYPE","path_type","RIGHTOFWAY","prow_ref","PROW_REF","Path_Name","risk_band","Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","Category","CATEGORY","Woodland_Type","woodland_t","Woodland_T","INSPIREID","inspireid","INSPIRE_ID"];
+  const fields=["ROW_TYPE","PROW_TYPE","ROWTYPE","path_type","RIGHTOFWAY","prow_ref","PROW_REF","Path_Name","risk_band","hab","Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","Category","CATEGORY","Woodland_Type","woodland_t","Woodland_T","INSPIREID","inspireid","INSPIRE_ID"];
   let detail=""; for(const k of fields){ if(p[k]){ detail=p[k]; break; } }
   return `<div class="pop"><span class="tag" style="background:${cfg._c}1a;color:${cfg._c}">${esc(cfg.label)}</span>`
     + (detail?`<h3 style="font-size:.95rem">${esc(detail)}</h3>`:`<p class="by">${esc(cfg.sub)}</p>`) + `</div>`;
@@ -912,7 +910,10 @@ async function loadContext(cfg){
     try{
       if(src.geojson){
         const r=await fetch(src.geojson); if(!r.ok) continue; const j=await r.json();
-        (j.features||[]).forEach(f=>{ const c=clipToParish(f); if(c) cfg.layer.addData(c); }); any=true; continue;
+        (j.features||[]).forEach(f=>{
+          let c; if(fast){ if(!nearBufferFeature(f, parishBuffer)) return; c=f; } else { c=clipToParish(f); if(!c) return; }
+          cfg.layer.addData(c);
+        }); any=true; continue;
       }
       const base=await sourceBase(src); if(!base) continue;
       const r=await fetch(base+qs); if(!r.ok) continue; const j=await r.json();
@@ -928,8 +929,11 @@ async function loadContext(cfg){
   cfg._loaded=true; cfg._loading=false;
   if(el) el.textContent="· "+cfg.layer.getLayers().length;
   if(!any) toast(`Couldn't load ${cfg.label} just now.`);
+  syncCtxCanvas();                 // ensure the canvas is drawn at the current zoom once loaded
 }
 const ctxCanvas = L.canvas({ padding:0.5 });   // canvas renderer — fast with many polygons
+function syncCtxCanvas(){ try{ if(ctxCanvas._map){ ctxCanvas._reset(); } }catch(e){} }
+map.on("zoomend", syncCtxCanvas);   // repaint cleanly if a zoom happened mid-load
 CONTEXT_LAYERS.forEach(cfg=>{
   cfg._c = cfg.colorBy ? "#4E8E63" : (cfg.style.fillColor || cfg.style.color);
   cfg.layer = L.geoJSON(null, {
