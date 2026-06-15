@@ -676,18 +676,23 @@ const projectLayers={};
 let editId=null, editLayer=null;
 
 const sessionProjects=[];
+function addProjectFeature(p){
+  if(!p || !p.geom) return;
+  projLayer.addData({type:"Feature",geometry:p.geom,
+    properties:{id:p.id,name:p.name,description:p.description,contributor:p.contributor,photos:p.photos||[]}});
+}
 async function loadProjects(){
-  projLayer.clearLayers(); for(const k in projectLayers) delete projectLayers[k]; let rows=[];
+  let rows=null;
   if(gasReady){
     try{ const r=await fetch(APPS_SCRIPT_URL); const j=await r.json(); if(j && j.ok) rows=j.projects||[]; }
     catch(e){ console.warn("Couldn't load projects from Google backend", e); }
   } else if(sbReady){
-    const {data,error}=await sb.from("projects").select("*").order("created_at",{ascending:false});
-    if(error) console.warn(error); else rows=data||[];
+    try{ const {data,error}=await sb.from("projects").select("*").order("created_at",{ascending:false});
+      if(error) console.warn(error); else rows=data||[]; }catch(e){ console.warn(e); }
   } else rows=sessionProjects;
-  rows.forEach(p=>{ if(!p.geom) return;
-    projLayer.addData({type:"Feature",geometry:p.geom,
-      properties:{id:p.id,name:p.name,description:p.description,contributor:p.contributor,photos:p.photos||[]}}); });
+  if(rows===null) return;            // fetch failed — keep whatever's already on the map
+  projLayer.clearLayers(); for(const k in projectLayers) delete projectLayers[k];
+  rows.forEach(addProjectFeature);
   setCount("c-proj", rows.length);
 }
 
@@ -714,8 +719,8 @@ async function deleteProject(id){
   if(!confirm("Delete this project? This can't be undone.")) return;
   try{
     const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify({ action:"delete", id, token:myToken(id), admin:adminPass }) });
-    const j=await r.json().catch(()=>({ok:true}));
-    if(j && j.ok===false) throw new Error(j.error||"delete failed");
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||"delete failed");
     toast("Project deleted."); map.closePopup(); await loadProjects();
   }catch(e){ console.error(e); toast("Couldn't delete — you may not have permission."); }
 }
@@ -858,9 +863,12 @@ async function submitProject(){
         : { name, description:desc, contributor:by||null, geom, photos };
       // text/plain body keeps it a "simple" request (no CORS preflight to Apps Script)
       const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify(body) });
-      const j=await r.json().catch(()=>({ok:true}));
-      if(j && j.ok===false) throw new Error(j.error||"save failed");
-      if(!editing && j && j.id && j.token) rememberOwn(j.id, j.token);
+      let j=null; try{ j=await r.json(); }catch(_){}
+      // a real save returns our JSON (with an id for new projects). Anything else = failure.
+      const okFlag = r.ok && j && j.ok!==false && (editing ? true : !!j.id);
+      if(!okFlag) throw new Error((j&&j.error) || "The backend didn't accept the save (check the deployment).");
+      if(!editing){ rememberOwn(j.id, j.token);
+        addProjectFeature({ id:j.id, name, description:desc, contributor:by||null, geom, photos:(j.photos||[]) }); }
       toast(editing ? "Your changes are saved." : "Thank you — your project is now on the map.");
     } else if(sbReady){
       const urls=[];
