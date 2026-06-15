@@ -222,7 +222,7 @@
       <span class="swatch" style="background:#5DA8E0"></span>
       <span class="layer__txt"><b>Flood risk</b><small>Environment Agency <span class="count" id="c-flood"></span></small></span></label>
     <label class="layer"><input type="checkbox" id="lyr-prow" checked>
-      <span class="swatch" style="background:transparent;height:0;border:0;border-top:3px dashed #1B7A2F;width:15px;margin-top:8px;border-radius:0"></span>
+      <span class="swatch" style="background:transparent;height:0;border:0;border-top:3px dashed #2EE65C;width:15px;margin-top:8px;border-radius:0"></span>
       <span class="layer__txt"><b>Public rights of way</b><small>footpaths &amp; bridleways <span class="count" id="c-prow"></span></small></span></label>
 
     <div class="basemap">
@@ -231,6 +231,7 @@
         <button id="bm-satos" class="active">Satellite + OS</button>
         <button id="bm-os">OS map</button>
         <button id="bm-sat">Satellite</button>
+        <button id="bm-lidar">LiDAR</button>
       </div>
     </div>
     <div style="border-top:1px solid var(--line);margin:8px 8px 0;padding-top:8px">
@@ -306,14 +307,14 @@ const CONTEXT_LAYERS = [
   { key:"habitats", label:"Habitats & woodland", sub:"priority habitats + woodland + trees",
     style:{stroke:false,fillOpacity:.6},
     colorBy:["Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","CATEGORY","Category","Woodland_Type"],
-    sources:[ {item:"39403df11c8044d998772db5b54ad86c"},    // NE priority habitats
-              {item:"0682c7cb180e4abe9dee7e4d5cc35784"},    // NFI woodland
-              {url:"https://services-eu1.arcgis.com/B07JPhDOjwgXOYvb/arcgis/rest/services/Trees_Outside_Woodland_view/FeatureServer/2"} ] }, // Trees Outside Woodland (SW)
+    sources:[ {item:"39403df11c8044d998772db5b54ad86c"},                       // NE priority habitats (coloured by type)
+              {item:"0682c7cb180e4abe9dee7e4d5cc35784", fill:"#2E7D32"},        // NFI woodland — all green
+              {url:"https://services-eu1.arcgis.com/B07JPhDOjwgXOYvb/arcgis/rest/services/Trees_Outside_Woodland_view/FeatureServer/2", fill:"#2E7D32"} ] }, // Trees Outside Woodland — all green
   { key:"flood", label:"Flood risk (rivers & sea)", sub:"Environment Agency",
     style:{color:"#2E78B5",weight:0.5,fillColor:"#5DA8E0",fillOpacity:.45},
     sources:[ {item:"a29d804c91174ef9a4382ae182da9051"} ] },
   { key:"prow", label:"Public rights of way", sub:"footpaths, bridleways & byways",
-    style:{color:"#1B7A2F",weight:2.5,opacity:.95,dashArray:"6 6",fill:false},
+    style:{color:"#2EE65C",weight:3,opacity:.98,dashArray:"6 6",fill:false},
     sources:[ {geojson:"shipham-prow.geojson"} ] }
 ];
 /* ================================================================= */
@@ -340,18 +341,35 @@ const osOutdoor = osReady ? L.tileLayer(`https://api.os.uk/maps/raster/v1/zxy/Ou
 const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
       { subdomains:"abcd", maxZoom:20, attribution:"&copy; OpenStreetMap &copy; CARTO" });
 
+/* EA LIDAR Composite 1 m DSM (optional terrain basemap).
+   Esri ImageServer rendered per-tile via exportImage, reprojected to Web Mercator. */
+const LIDAR_URL = "https://environment.data.gov.uk/image/rest/services/SURVEY/Lidar_Composite_LZ_DSM_1m/ImageServer/exportImage";
+const LidarTileLayer = L.TileLayer.extend({
+  getTileUrl: function(coords){
+    const b=this._tileCoordsToBounds(coords);
+    const sw=L.CRS.EPSG3857.project(b.getSouthWest());
+    const ne=L.CRS.EPSG3857.project(b.getNorthEast());
+    const s=this.getTileSize();
+    return `${LIDAR_URL}?bbox=${sw.x},${sw.y},${ne.x},${ne.y}&bboxSR=3857&imageSR=3857`
+      + `&size=${s.x},${s.y}&format=png&interpolation=RSP_BilinearInterpolation&f=image`;
+  }
+});
+const lidarLayer = new LidarTileLayer("", { maxZoom:20, attribution:"LIDAR &copy; Environment Agency (OGL v3)" });
+
 let currentBase = [];
 function setBase(mode){
   currentBase.forEach(l=>map.removeLayer(l)); currentBase=[];
   const add=l=>{ l.addTo(map); currentBase.push(l); };
   if(mode==="os" && osOutdoor){ osOutdoor.setOpacity(1); add(osOutdoor); }
   else if(mode==="sat"){ add(satLayer); }
+  else if(mode==="lidar"){ add(lidarLayer); }
   else { add(satLayer); if(osOutdoor){ osOutdoor.setOpacity(.55); add(osOutdoor); } else add(labels); }
-  ["satos","os","sat"].forEach(m=>document.getElementById("bm-"+m).classList.toggle("active", m===mode));
+  ["satos","os","sat","lidar"].forEach(m=>document.getElementById("bm-"+m).classList.toggle("active", m===mode));
 }
 document.getElementById("bm-satos").onclick=()=>setBase("satos");
 document.getElementById("bm-os").onclick=()=>{ if(!osOutdoor) toast("Add a free OS key (see README) to switch on OS maps."); setBase(osOutdoor?"os":"satos"); };
 document.getElementById("bm-sat").onclick=()=>setBase("sat");
+document.getElementById("bm-lidar").onclick=()=>setBase("lidar");
 setBase("satos");
 
 /* ---------- Feature layers ---------- */
@@ -870,7 +888,8 @@ async function loadContext(cfg){
       }
       const base=await sourceBase(src); if(!base) continue;
       const r=await fetch(base+qs); if(!r.ok) continue; const j=await r.json();
-      (j.features||[]).forEach(f=>{ const c=clipToParish(f); if(c) cfg.layer.addData(c); }); any=true;
+      (j.features||[]).forEach(f=>{ const c=clipToParish(f);
+        if(c){ if(src.fill){ (c.properties=c.properties||{}).__fill=src.fill; } cfg.layer.addData(c); } }); any=true;
     }catch(e){ console.warn("Context layer source failed:", cfg.key, e); }
   }
   cfg._loaded=true; cfg._loading=false;
@@ -880,9 +899,10 @@ async function loadContext(cfg){
 CONTEXT_LAYERS.forEach(cfg=>{
   cfg._c = cfg.colorBy ? "#4E8E63" : (cfg.style.fillColor || cfg.style.color);
   cfg.layer = L.geoJSON(null, {
-    style: f => cfg.colorBy
-      ? Object.assign({}, cfg.style, { fillColor: paletteColor(fieldVal(f.properties, cfg.colorBy)) })
-      : cfg.style,
+    style: f => { const p=f.properties||{};
+      if(p.__fill) return Object.assign({}, cfg.style, { fillColor:p.__fill });
+      if(cfg.colorBy) return Object.assign({}, cfg.style, { fillColor: paletteColor(fieldVal(p, cfg.colorBy)) });
+      return cfg.style; },
     onEachFeature:(f,l)=>l.bindPopup(contextPopup(cfg, f.properties||{}))
   });
   const cb=document.getElementById("lyr-"+cfg.key);
