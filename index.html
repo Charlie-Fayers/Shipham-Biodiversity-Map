@@ -22,6 +22,10 @@
     --shadow:0 6px 24px rgba(30,42,35,.16); --radius:16px;
   }
   *{box-sizing:border-box}
+  /* Stop any inherited max-width/height from distorting Leaflet's tiles, markers
+     and vector SVG — a common cause of layers scaling/drifting wrong on zoom. */
+  .leaflet-container img,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-tile,
+  .leaflet-marker-icon,.leaflet-image-layer{max-width:none!important;max-height:none!important}
   /* Pin the draw/edit vertex handles to a fixed size centred on their point
      (Leaflet's touch CSS resizes them but leaves the old centring, which made
      the handles sit SW of their point and the polygon look offset NE). */
@@ -202,9 +206,6 @@
     <label class="layer"><input type="checkbox" id="lyr-sssi" checked>
       <span class="swatch" style="background:#D81B83"></span>
       <span class="layer__txt"><b>Protected wildlife sites</b><small>SSSIs — within 1&nbsp;km <span class="count" id="c-sssi"></span></small></span></label>
-    <label class="layer"><input type="checkbox" id="lyr-lnr" checked>
-      <span class="swatch" style="background:var(--slate)"></span>
-      <span class="layer__txt"><b>Local nature reserves</b><small>Natural England <span class="count" id="c-lnr"></span></small></span></label>
     <label class="layer"><input type="checkbox" id="lyr-inat" checked>
       <span class="swatch" style="background:var(--gorse)"></span>
       <span class="layer__txt"><b>Recent wildlife sightings</b><small>iNaturalist <span class="count" id="c-inat"></span></small></span></label>
@@ -305,7 +306,7 @@ const SHIPHAM = { lat:51.3138, lng:-2.7987, zoom:14 };
    your ArcGIS map (…/FeatureServer/0) into the {url:"…"} blanks below.        */
 const CONTEXT_LAYERS = [
   { key:"habitats", label:"Habitats & woodland", sub:"priority habitats + woodland + trees",
-    style:{stroke:false,fillOpacity:.6},
+    style:{stroke:false,fillOpacity:.6}, fastClip:true,
     colorBy:["Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","CATEGORY","Category","Woodland_Type"],
     sources:[ {item:"39403df11c8044d998772db5b54ad86c"},                       // NE priority habitats (coloured by type)
               {item:"0682c7cb180e4abe9dee7e4d5cc35784", fill:"#2E7D32"},        // NFI woodland — all green
@@ -375,8 +376,6 @@ setBase("satos");
 /* ---------- Feature layers ---------- */
 const sssiLayer = L.geoJSON(null, { style:()=>({color:"#D81B83",weight:2,fillColor:"#E0559E",fillOpacity:.18}),
   onEachFeature:(f,l)=>bindDesignation(f,l,"SSSI","#D81B83") }).addTo(map);
-const lnrLayer  = L.geoJSON(null, { style:()=>({color:"#3E7CA8",weight:2,fillColor:"#3E7CA8",fillOpacity:.16}),
-  onEachFeature:(f,l)=>bindDesignation(f,l,"Local Nature Reserve","#3E7CA8") }).addTo(map);
 const inatCluster = L.markerClusterGroup({ maxClusterRadius:45, showCoverageOnHover:false }).addTo(map);
 let inatTiles = null;   // fallback tile layer, used only if the live API can't be reached
 const projLayer = L.geoJSON(null, { style:()=>({color:"#8E4A77",weight:2.5,fillColor:"#8E4A77",fillOpacity:.22}),
@@ -386,7 +385,6 @@ const parishGroup = L.layerGroup().addTo(map);
 
 bindToggle("lyr-parish", parishGroup);
 bindToggle("lyr-sssi", sssiLayer);
-bindToggle("lyr-lnr", lnrLayer);
 document.getElementById("lyr-inat").addEventListener("change", e=>{
   [inatCluster, inatTiles].forEach(l=>{ if(l){ e.target.checked ? map.addLayer(l) : map.removeLayer(l); } });
 });
@@ -518,6 +516,20 @@ function clipToBuffer(f, buf){
   }catch(e){ return f; }
 }
 function clipToParish(f){ return clipToBuffer(f, parishBuffer); }   // 500 m (general overlays)
+/* Cheap inclusion test (no geometry trimming) — used for high-volume layers
+   like habitats/woodland/trees so we skip the costly exact clip on thousands of polygons. */
+function nearBufferFeature(f, buf){
+  try{
+    const g=f.geometry; if(!g) return false; let pt;
+    if(g.type==="Point") pt=g.coordinates;
+    else if(g.type==="Polygon") pt=g.coordinates[0][0];
+    else if(g.type==="MultiPolygon") pt=g.coordinates[0][0][0];
+    else if(g.type==="LineString") pt=g.coordinates[0];
+    else if(g.type==="MultiLineString") pt=g.coordinates[0][0];
+    else return true;
+    return turf.booleanPointInPolygon(pt, buf);
+  }catch(e){ return true; }
+}
 function mergeFeatures(layer, set, geojson, countId, buf){
   (geojson.features||[]).forEach(f=>{ const id=idOf(f);
     if(set.has(id)) return;
@@ -526,9 +538,8 @@ function mergeFeatures(layer, set, geojson, countId, buf){
   setCount(countId, set.size);
 }
 async function loadDesignations(b){
-  const [s,l] = await Promise.all([queryNE(NE.sssi,b), queryNE(NE.lnr,b)]);
+  const s = await queryNE(NE.sssi, b);
   if(s) mergeFeatures(sssiLayer, seen.sssi, s, "c-sssi", designatedBuffer);  // 1 km for designated sites
-  if(l) mergeFeatures(lnrLayer,  seen.lnr,  l, "c-lnr",  designatedBuffer);
 }
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 // Timeout without AbortController (AbortSignal can't be cloned in some sandboxes)
@@ -597,7 +608,7 @@ async function loadArea(force){
   if(map.getZoom() < 11) return;
   loading=true;
   const fetchB=view.pad(0.5);
-  ["c-sssi","c-lnr","c-inat"].forEach(id=>{ const el=document.getElementById(id); if(el && !el.textContent) el.textContent="· …"; });
+  ["c-sssi","c-inat"].forEach(id=>{ const el=document.getElementById(id); if(el && !el.textContent) el.textContent="· …"; });
   await Promise.all([ loadDesignations(fetchB), loadINat(fetchB) ]);
   loadedArea = loadedArea ? loadedArea.extend(fetchB) : fetchB;
   loading=false;
@@ -858,9 +869,24 @@ async function sourceBase(src){
   if(src.item) return await itemToQuery(src.item);
   return null;
 }
-const _palette=["#2E7D32","#66BB6A","#9CCC65","#C0CA33","#FBC02D","#FB8C00","#8D6E63","#6D4C41","#26A69A","#00897B","#5C6BC0","#7E57C2","#AB47BC","#EC407A","#26C6DA","#42A5F5","#78909C","#A1887F","#558B2F","#D4E157"];
+const _palette=["#C0CA33","#FBC02D","#FB8C00","#8D6E63","#6D4C41","#5C6BC0","#7E57C2","#AB47BC","#EC407A","#26C6DA","#42A5F5","#78909C","#A1887F","#D4E157"];
 const _palMap={}; let _palI=0;
 function paletteColor(name){ name=name||"—"; if(!(name in _palMap)){ _palMap[name]=_palette[_palI%_palette.length]; _palI++; } return _palMap[name]; }
+/* Colour a habitat by its type. Green is reserved for woodland/trees so grassland
+   and other habitats never look like woodland. */
+function habitatColor(name){
+  const n=(name||"").toLowerCase();
+  if(/wood|tree|copse|orchard|parkland/.test(n))                       return "#2E7D32"; // green
+  if(/grass|meadow|pasture|calcareous|acid grass|neutral grass/.test(n))return "#E0A52E"; // gold
+  if(/heath|moor/.test(n))                                             return "#9C4D9C"; // purple
+  if(/bog|fen|marsh|mire|wetland|reedbed|swamp|flush|grazing/.test(n)) return "#1E88A8"; // teal-blue
+  if(/scrub/.test(n))                                                  return "#9E9D24"; // olive
+  if(/coast|saltmarsh|dune|shingle|maritime|saline|inter.?tidal/.test(n))return "#C2A36B"; // sand
+  if(/arable|hedge|cereal/.test(n))                                    return "#B07A3C"; // brown
+  if(/rock|scree|limestone pavement|cave/.test(n))                     return "#9E9E9E"; // grey
+  if(!n) return "#7E57C2";
+  return paletteColor(n);
+}
 function fieldVal(p, keys){ for(const k of keys){ if(p && p[k]!=null && p[k]!=="") return String(p[k]); } return ""; }
 function contextPopup(cfg, p){
   const fields=["ROW_TYPE","PROW_TYPE","ROWTYPE","path_type","RIGHTOFWAY","prow_ref","PROW_REF","Path_Name","risk_band","Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","Category","CATEGORY","Woodland_Type","woodland_t","Woodland_T","INSPIREID","inspireid","INSPIRE_ID"];
@@ -878,7 +904,9 @@ async function loadContext(cfg){
   const bb = parishBuffer ? L.geoJSON(parishBuffer).getBounds() : map.getBounds();
   const env=`${bb.getWest()},${bb.getSouth()},${bb.getEast()},${bb.getNorth()}`;
   const qs=`/query?where=1%3D1&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326`
-    +`&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&returnGeometry=true&resultRecordCount=4000&f=geojson`;
+    +`&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&returnGeometry=true`
+    +`&maxAllowableOffset=0.00002&resultRecordCount=6000&f=geojson`;   // ~2 m generalisation = far less to draw
+  const fast = cfg.fastClip && parishBuffer;
   let any=false;
   for(const src of cfg.sources){
     try{
@@ -888,20 +916,27 @@ async function loadContext(cfg){
       }
       const base=await sourceBase(src); if(!base) continue;
       const r=await fetch(base+qs); if(!r.ok) continue; const j=await r.json();
-      (j.features||[]).forEach(f=>{ const c=clipToParish(f);
-        if(c){ if(src.fill){ (c.properties=c.properties||{}).__fill=src.fill; } cfg.layer.addData(c); } }); any=true;
+      (j.features||[]).forEach(f=>{
+        let c;
+        if(fast){ if(!nearBufferFeature(f, parishBuffer)) return; c=f; }   // cheap include test, no trimming
+        else { c=clipToParish(f); if(!c) return; }
+        if(src.fill){ (c.properties=c.properties||{}).__fill=src.fill; }
+        cfg.layer.addData(c);
+      }); any=true;
     }catch(e){ console.warn("Context layer source failed:", cfg.key, e); }
   }
   cfg._loaded=true; cfg._loading=false;
   if(el) el.textContent="· "+cfg.layer.getLayers().length;
   if(!any) toast(`Couldn't load ${cfg.label} just now.`);
 }
+const ctxCanvas = L.canvas({ padding:0.5 });   // canvas renderer — fast with many polygons
 CONTEXT_LAYERS.forEach(cfg=>{
   cfg._c = cfg.colorBy ? "#4E8E63" : (cfg.style.fillColor || cfg.style.color);
   cfg.layer = L.geoJSON(null, {
+    renderer: ctxCanvas,
     style: f => { const p=f.properties||{};
       if(p.__fill) return Object.assign({}, cfg.style, { fillColor:p.__fill });
-      if(cfg.colorBy) return Object.assign({}, cfg.style, { fillColor: paletteColor(fieldVal(p, cfg.colorBy)) });
+      if(cfg.colorBy) return Object.assign({}, cfg.style, { fillColor: habitatColor(fieldVal(p, cfg.colorBy)) });
       return cfg.style; },
     onEachFeature:(f,l)=>l.bindPopup(contextPopup(cfg, f.properties||{}))
   });
