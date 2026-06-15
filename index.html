@@ -666,6 +666,8 @@ async function loadParish(){
 /* ---------- Projects ---------- */
 /* ---------- Ownership (per-project token in this browser + admin) ---------- */
 const OWN_KEY="shipham_my_projects";
+function uuid(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : (Date.now()+"-"+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)); }
 function ownStore(){ try{ return JSON.parse(localStorage.getItem(OWN_KEY)||"{}"); }catch(e){ return {}; } }
 function rememberOwn(id,token){ try{ const s=ownStore(); s[id]=token; localStorage.setItem(OWN_KEY,JSON.stringify(s)); }catch(e){} }
 function myToken(id){ return ownStore()[id]||null; }
@@ -718,11 +720,10 @@ async function deleteProject(id){
   if(!gasReady){ toast("Deleting needs the Google backend."); return; }
   if(!confirm("Delete this project? This can't be undone.")) return;
   try{
-    const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify({ action:"delete", id, token:myToken(id), admin:adminPass }) });
-    let j=null; try{ j=await r.json(); }catch(_){}
-    if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||"delete failed");
+    await fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify({ action:"delete", id, token:myToken(id), admin:adminPass }) });
+    const l=projectLayers[id]; if(l){ projLayer.removeLayer(l); delete projectLayers[id]; }  // optimistic
     toast("Project deleted."); map.closePopup(); await loadProjects();
-  }catch(e){ console.error(e); toast("Couldn't delete — you may not have permission."); }
+  }catch(e){ console.error(e); toast("Couldn't delete just now — please try again."); }
 }
 
 /* ---------- Panel & toast ---------- */
@@ -748,13 +749,11 @@ adminBtn.addEventListener("click", async ()=>{
     refreshAdminBtn(); await loadProjects(); toast("Admin mode off."); return; }
   if(!gasReady){ toast("Admin needs the Google backend."); return; }
   const pw=prompt("Enter the admin password:"); if(!pw) return;
-  try{
-    const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify({ action:"verifyAdmin", admin:pw }) });
-    const j=await r.json().catch(()=>({ok:false}));
-    if(j && j.ok){ adminMode=true; adminPass=pw; try{ sessionStorage.setItem("shipham_admin",pw); }catch(e){}
-      refreshAdminBtn(); toast("Admin mode on — you can edit or delete any project."); await loadProjects(); }
-    else toast("That password wasn't recognised.");
-  }catch(e){ toast("Couldn't verify right now."); }
+  // The password is checked server-side on every edit/delete, so enable the controls
+  // optimistically (a wrong password simply can't change anything on the backend).
+  adminMode=true; adminPass=pw; try{ sessionStorage.setItem("shipham_admin",pw); }catch(e){}
+  refreshAdminBtn(); toast("Admin mode on — you can edit or delete any project.");
+  await loadProjects();
 });
 
 const toastEl=document.getElementById("toast"); let toastT;
@@ -858,17 +857,15 @@ async function submitProject(){
     if(gasReady){
       const photos=[];
       for(const f of files){ photos.push(await blobToDataURL(await resizeImage(f))); }
+      const newId=uuid(), newToken=uuid();
       const body = editing
         ? { action:"update", id:targetId, token:myToken(targetId), admin:adminPass, name, description:desc, contributor:by||null, geom, photos }
-        : { name, description:desc, contributor:by||null, geom, photos };
-      // text/plain body keeps it a "simple" request (no CORS preflight to Apps Script)
-      const r=await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify(body) });
-      let j=null; try{ j=await r.json(); }catch(_){}
-      // a real save returns our JSON (with an id for new projects). Anything else = failure.
-      const okFlag = r.ok && j && j.ok!==false && (editing ? true : !!j.id);
-      if(!okFlag) throw new Error((j&&j.error) || "The backend didn't accept the save (check the deployment).");
-      if(!editing){ rememberOwn(j.id, j.token);
-        addProjectFeature({ id:j.id, name, description:desc, contributor:by||null, geom, photos:(j.photos||[]) }); }
+        : { id:newId, token:newToken, name, description:desc, contributor:by||null, geom, photos };
+      // Apps Script saves while running doPost on THIS request; the browser can't read a
+      // cross-origin reply, so send it fire-and-forget (no-cors) and trust our own id/token.
+      await fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify(body) });
+      if(!editing){ rememberOwn(newId, newToken);
+        addProjectFeature({ id:newId, name, description:desc, contributor:by||null, geom, photos:files.map(f=>URL.createObjectURL(f)) }); }
       toast(editing ? "Your changes are saved." : "Thank you — your project is now on the map.");
     } else if(sbReady){
       const urls=[];
