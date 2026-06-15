@@ -216,20 +216,14 @@
       <small style="display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-left:8px">Context layers</small>
     </div>
     <label class="layer"><input type="checkbox" id="lyr-habitats">
-      <span class="swatch" style="background:#5E9E72"></span>
-      <span class="layer__txt"><b>Priority habitats</b><small>Natural England <span class="count" id="c-habitats"></span></small></span></label>
-    <label class="layer"><input type="checkbox" id="lyr-woodland">
-      <span class="swatch" style="background:#2E6E4E"></span>
-      <span class="layer__txt"><b>Woodland &amp; trees</b><small>Forestry Commission <span class="count" id="c-woodland"></span></small></span></label>
+      <span class="swatch" style="background:linear-gradient(90deg,#2E7D32,#9CCC65,#26A69A)"></span>
+      <span class="layer__txt"><b>Habitats &amp; woodland</b><small>coloured by habitat type <span class="count" id="c-habitats"></span></small></span></label>
     <label class="layer"><input type="checkbox" id="lyr-flood">
       <span class="swatch" style="background:#5DA8E0"></span>
       <span class="layer__txt"><b>Flood risk</b><small>Environment Agency <span class="count" id="c-flood"></span></small></span></label>
     <label class="layer"><input type="checkbox" id="lyr-prow" checked>
       <span class="swatch" style="background:transparent;height:0;border:0;border-top:3px dashed #1B7A2F;width:15px;margin-top:8px;border-radius:0"></span>
       <span class="layer__txt"><b>Public rights of way</b><small>footpaths &amp; bridleways <span class="count" id="c-prow"></span></small></span></label>
-    <label class="layer"><input type="checkbox" id="lyr-inspire">
-      <span class="swatch" style="background:#C0651E"></span>
-      <span class="layer__txt"><b>Land Registry (INSPIRE)</b><small>property extents <span class="count" id="c-inspire"></span></small></span></label>
 
     <div class="basemap">
       <small>Base map</small>
@@ -309,23 +303,18 @@ const SHIPHAM = { lat:51.3138, lng:-2.7987, zoom:14 };
    service. Two of them have a paste-in slot — copy the layer's service URL from
    your ArcGIS map (…/FeatureServer/0) into the {url:"…"} blanks below.        */
 const CONTEXT_LAYERS = [
-  { key:"habitats", label:"Priority habitats", sub:"Natural England",
-    style:{weight:0.4,color:"#ffffff",fillOpacity:.55},
-    colorBy:["Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT"],
-    sources:[ {item:"39403df11c8044d998772db5b54ad86c"} ] },
-  { key:"woodland", label:"Woodland & trees", sub:"NFI woodland + trees outside woodland",
-    style:{stroke:false,weight:0,fillColor:"#2E6E4E",fillOpacity:.55},
-    sources:[ {item:"0682c7cb180e4abe9dee7e4d5cc35784"}
-              /* , {url:"PASTE Trees-Outside-Woodland FeatureServer/0 URL here"} */ ] },
+  { key:"habitats", label:"Habitats & woodland", sub:"priority habitats + woodland + trees",
+    style:{stroke:false,fillOpacity:.6},
+    colorBy:["Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","CATEGORY","Category","Woodland_Type"],
+    sources:[ {item:"39403df11c8044d998772db5b54ad86c"},    // NE priority habitats
+              {item:"0682c7cb180e4abe9dee7e4d5cc35784"},    // NFI woodland
+              {url:"https://services-eu1.arcgis.com/B07JPhDOjwgXOYvb/arcgis/rest/services/Trees_Outside_Woodland_view/FeatureServer/2"} ] }, // Trees Outside Woodland (SW)
   { key:"flood", label:"Flood risk (rivers & sea)", sub:"Environment Agency",
     style:{color:"#2E78B5",weight:0.5,fillColor:"#5DA8E0",fillOpacity:.45},
-    sources:[ {item:"f8488c24a34f4456a69abd894a2ba180"} ] },
+    sources:[ {item:"a29d804c91174ef9a4382ae182da9051"} ] },
   { key:"prow", label:"Public rights of way", sub:"footpaths, bridleways & byways",
     style:{color:"#1B7A2F",weight:2.5,opacity:.95,dashArray:"6 6",fill:false},
-    sources:[ {geojson:"shipham-prow.geojson"} ] },
-  { key:"inspire", label:"Land Registry (INSPIRE)", sub:"property extents",
-    style:{color:"#C0651E",weight:0.7,fill:false},
-    sources:[ /* {url:"PASTE your INSPIRE Index Polygons FeatureServer/0 URL here"} */ ] }
+    sources:[ {geojson:"shipham-prow.geojson"} ] }
 ];
 /* ================================================================= */
 
@@ -856,7 +845,7 @@ const _palMap={}; let _palI=0;
 function paletteColor(name){ name=name||"—"; if(!(name in _palMap)){ _palMap[name]=_palette[_palI%_palette.length]; _palI++; } return _palMap[name]; }
 function fieldVal(p, keys){ for(const k of keys){ if(p && p[k]!=null && p[k]!=="") return String(p[k]); } return ""; }
 function contextPopup(cfg, p){
-  const fields=["ROW_TYPE","PROW_TYPE","ROWTYPE","path_type","RIGHTOFWAY","prow_ref","PROW_REF","Path_Name","risk_band","Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","Category","CATEGORY","woodland_t","Woodland_T","INSPIREID","inspireid","INSPIRE_ID"];
+  const fields=["ROW_TYPE","PROW_TYPE","ROWTYPE","path_type","RIGHTOFWAY","prow_ref","PROW_REF","Path_Name","risk_band","Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","Category","CATEGORY","Woodland_Type","woodland_t","Woodland_T","INSPIREID","inspireid","INSPIRE_ID"];
   let detail=""; for(const k of fields){ if(p[k]){ detail=p[k]; break; } }
   return `<div class="pop"><span class="tag" style="background:${cfg._c}1a;color:${cfg._c}">${esc(cfg.label)}</span>`
     + (detail?`<h3 style="font-size:.95rem">${esc(detail)}</h3>`:`<p class="by">${esc(cfg.sub)}</p>`) + `</div>`;
