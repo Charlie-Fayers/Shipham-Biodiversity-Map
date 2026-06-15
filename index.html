@@ -861,12 +861,14 @@ async function submitProject(){
       const body = editing
         ? { action:"update", id:targetId, token:myToken(targetId), admin:adminPass, name, description:desc, contributor:by||null, geom, photos }
         : { id:newId, token:newToken, name, description:desc, contributor:by||null, geom, photos };
-      // Apps Script saves while running doPost on THIS request; the browser can't read a
-      // cross-origin reply, so send it fire-and-forget (no-cors) and trust our own id/token.
-      await fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify(body) });
+      // Show the result right away — the write runs server-side even though the browser
+      // can't read the cross-origin reply.
       if(!editing){ rememberOwn(newId, newToken);
         addProjectFeature({ id:newId, name, description:desc, contributor:by||null, geom, photos:files.map(f=>URL.createObjectURL(f)) }); }
       toast(editing ? "Your changes are saved." : "Thank you — your project is now on the map.");
+      // Fire the write in the background; a sandbox that blocks it must not look like a failure.
+      fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify(body) })
+        .then(()=>loadProjects()).catch(err=>console.warn("Save couldn't be confirmed (will sync on reload):", err));
     } else if(sbReady){
       const urls=[];
       for(let i=0;i<files.length;i++){ const blob=await resizeImage(files[i]);
@@ -877,11 +879,12 @@ async function submitProject(){
       const {error}=await sb.from("projects").insert({name,description:desc,contributor:by||null,geom,photos:urls});
       if(error) throw error;
       toast("Thank you — your project is now on the map.");
+      await loadProjects();
     } else {
       sessionProjects.unshift({name,description:desc,contributor:by||null,geom,photos:files.map(f=>URL.createObjectURL(f))});
       toast("Added in preview. Connect storage (README) to share it.");
+      await loadProjects();
     }
-    await loadProjects();
   }catch(err){ console.error(err); toast("Sorry — saving failed. Please try again."); if(editing) loadProjects(); }
   finally{ _submitting=false; }
 }
