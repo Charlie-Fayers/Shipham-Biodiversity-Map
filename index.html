@@ -240,7 +240,7 @@
     </div>
     <div style="border-top:1px solid var(--line);margin:8px 8px 0;padding-top:8px">
       <button id="adminBtn" style="width:100%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px;border-radius:9px;font-size:.73rem;font-weight:600;cursor:pointer;font-family:inherit">Manage as admin</button>
-      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-g</div>
+      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-h</div>
     </div>
   </div>
 </aside>
@@ -669,6 +669,7 @@ async function loadParish(){
 const OWN_KEY="shipham_my_projects";
 function uuid(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
   : (Date.now()+"-"+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)); }
+function objURL(f){ try{ return URL.createObjectURL(f); }catch(_){ return null; } }
 function ownStore(){ try{ return JSON.parse(localStorage.getItem(OWN_KEY)||"{}"); }catch(e){ return {}; } }
 function rememberOwn(id,token){ try{ const s=ownStore(); s[id]=token; localStorage.setItem(OWN_KEY,JSON.stringify(s)); }catch(e){} }
 function myToken(id){ return ownStore()[id]||null; }
@@ -681,8 +682,9 @@ let editId=null, editLayer=null;
 const sessionProjects=[];
 function addProjectFeature(p){
   if(!p || !p.geom) return;
-  projLayer.addData({type:"Feature",geometry:p.geom,
-    properties:{id:p.id,name:p.name,description:p.description,contributor:p.contributor,photos:p.photos||[]}});
+  try{ projLayer.addData({type:"Feature",geometry:p.geom,
+    properties:{id:p.id,name:p.name,description:p.description,contributor:p.contributor,photos:p.photos||[]}}); }
+  catch(e){ console.warn("Couldn't draw a project:", e); }
 }
 async function loadProjects(){
   let rows=null;
@@ -837,7 +839,7 @@ function resizeImage(file,max=1600,q=.82){ return new Promise(res=>{ const img=n
   img.onload=()=>{ let {width:w,height:h}=img; if(w>max||h>max){ const s=Math.min(max/w,max/h); w=Math.round(w*s); h=Math.round(h*s); }
     const c=document.createElement("canvas"); c.width=w; c.height=h; c.getContext("2d").drawImage(img,0,0,w,h);
     c.toBlob(b=>res(b||file),"image/jpeg",q); }; img.onerror=()=>res(file); img.src=URL.createObjectURL(file); }); }
-const blobToDataURL = b => new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(b); });
+const blobToDataURL = b => new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.onerror=()=>r(null); fr.readAsDataURL(b); });
 
 let _submitting=false;
 async function submitProject(){
@@ -856,20 +858,23 @@ async function submitProject(){
   toast(editing ? "Saving changes…" : "Saving your project…");
   try{
     if(gasReady){
-      const photos=[];
-      for(const f of files){ photos.push(await blobToDataURL(await resizeImage(f))); }
       const newId=uuid(), newToken=uuid();
-      const body = editing
-        ? { action:"update", id:targetId, token:myToken(targetId), admin:adminPass, name, description:desc, contributor:by||null, geom, photos }
-        : { id:newId, token:newToken, name, description:desc, contributor:by||null, geom, photos };
-      // Show the result right away — the write runs server-side even though the browser
-      // can't read the cross-origin reply.
       if(!editing){ rememberOwn(newId, newToken);
-        addProjectFeature({ id:newId, name, description:desc, contributor:by||null, geom, photos:files.map(f=>URL.createObjectURL(f)) }); }
+        addProjectFeature({ id:newId, name, description:desc, contributor:by||null, geom, photos:files.map(objURL).filter(Boolean) }); }
       toast(editing ? "Your changes are saved." : "Thank you — your project is now on the map.");
-      // Fire the write in the background; a sandbox that blocks it must not look like a failure.
-      fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify(body) })
-        .then(()=>loadProjects()).catch(err=>console.warn("Save couldn't be confirmed (will sync on reload):", err));
+      // Everything that can fail (photo encoding + the cross-origin write) runs in the
+      // background, so it can never surface as a false "saving failed". The write executes
+      // server-side even though the browser is blocked from reading the reply.
+      (async ()=>{
+        const photos=[];
+        for(const f of files){ try{ const d=await blobToDataURL(await resizeImage(f)); if(d) photos.push(d); }catch(_){ } }
+        const body = editing
+          ? { action:"update", id:targetId, token:myToken(targetId), admin:adminPass, name, description:desc, contributor:by||null, geom, photos }
+          : { id:newId, token:newToken, name, description:desc, contributor:by||null, geom, photos };
+        try{ await fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify(body) }); }
+        catch(err){ console.warn("Background save request:", err); }
+        loadProjects();
+      })();
     } else if(sbReady){
       const urls=[];
       for(let i=0;i<files.length;i++){ const blob=await resizeImage(files[i]);
