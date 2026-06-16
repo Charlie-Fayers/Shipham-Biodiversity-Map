@@ -240,7 +240,7 @@
     </div>
     <div style="border-top:1px solid var(--line);margin:8px 8px 0;padding-top:8px">
       <button id="adminBtn" style="width:100%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px;border-radius:9px;font-size:.73rem;font-weight:600;cursor:pointer;font-family:inherit">Manage as admin</button>
-      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-k</div>
+      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-l</div>
     </div>
   </div>
 </aside>
@@ -390,7 +390,7 @@ const sssiLayer = L.geoJSON(null, { style:()=>({color:"#D81B83",weight:2,fillCol
 const inatCluster = L.markerClusterGroup({ maxClusterRadius:45, showCoverageOnHover:false }).addTo(map);
 let inatTiles = null;   // fallback tile layer, used only if the live API can't be reached
 const projLayer = L.geoJSON(null, { style:()=>({color:"#8E4A77",weight:2.5,fillColor:"#8E4A77",fillOpacity:.22}),
-  onEachFeature:(f,l)=>{ l._project=f.properties; if(f.properties.id) projectLayers[f.properties.id]=l;
+  onEachFeature:(f,l)=>{ l._projData=f.properties; if(f.properties.id) projectLayers[f.properties.id]=l;
     l.bindPopup(projectPopup(f.properties)); } }).addTo(map);
 const parishGroup = L.layerGroup().addTo(map);
 
@@ -437,7 +437,7 @@ async function enrichDesignation(popup, d){
 }
 map.on("popupopen", e=>{ const s=e.popup._source;
   if(s && s._designation && !s._enriched){ s._enriched=true; enrichDesignation(e.popup, s._designation); }
-  if(s && s._project){ const el=e.popup.getElement();
+  if(s && s._projData){ const el=e.popup.getElement();
     const eb=el && el.querySelector("[data-edit]"); if(eb) eb.onclick=()=>startEdit(eb.getAttribute("data-edit"));
     const db=el && el.querySelector("[data-del]"); if(db) db.onclick=()=>deleteProject(db.getAttribute("data-del")); }
 });
@@ -728,7 +728,7 @@ async function loadProjects(){
 function startEdit(id){
   const l=projectLayers[id]; if(!l) return;
   if(!gasReady){ toast("Editing needs the Google backend."); return; }
-  const p=l._project||{};
+  const p=l._projData||{};
   map.closePopup();
   editId=id; editLayer=l;
   try{ l.editing.enable(); }catch(e){}
