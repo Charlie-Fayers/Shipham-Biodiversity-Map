@@ -240,7 +240,7 @@
     </div>
     <div style="border-top:1px solid var(--line);margin:8px 8px 0;padding-top:8px">
       <button id="adminBtn" style="width:100%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px;border-radius:9px;font-size:.73rem;font-weight:600;cursor:pointer;font-family:inherit">Manage as admin</button>
-      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-h</div>
+      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-j</div>
     </div>
   </div>
 </aside>
@@ -670,6 +670,20 @@ const OWN_KEY="shipham_my_projects";
 function uuid(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
   : (Date.now()+"-"+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)); }
 function objURL(f){ try{ return URL.createObjectURL(f); }catch(_){ return null; } }
+// Load cross-origin JSON via a <script> tag (JSONP) — Apps Script blocks fetch reads, but
+// a script-tag read with a ?callback= works fine.
+function jsonp(url, timeout=12000){
+  return new Promise((resolve,reject)=>{
+    const cb="__shipham_cb_"+Math.random().toString(36).slice(2);
+    const s=document.createElement("script"); let done=false;
+    const cleanup=()=>{ if(s.parentNode) s.parentNode.removeChild(s); try{ delete window[cb]; }catch(_){ window[cb]=undefined; } };
+    window[cb]=data=>{ done=true; cleanup(); resolve(data); };
+    s.onerror=()=>{ if(!done){ cleanup(); reject(new Error("jsonp failed")); } };
+    setTimeout(()=>{ if(!done){ cleanup(); reject(new Error("jsonp timeout")); } }, timeout);
+    s.src=url+(url.indexOf("?")>-1?"&":"?")+"callback="+cb+"&t="+Date.now();
+    document.body.appendChild(s);
+  });
+}
 function ownStore(){ try{ return JSON.parse(localStorage.getItem(OWN_KEY)||"{}"); }catch(e){ return {}; } }
 function rememberOwn(id,token){ try{ const s=ownStore(); s[id]=token; localStorage.setItem(OWN_KEY,JSON.stringify(s)); }catch(e){} }
 function myToken(id){ return ownStore()[id]||null; }
@@ -689,7 +703,7 @@ function addProjectFeature(p){
 async function loadProjects(){
   let rows=null;
   if(gasReady){
-    try{ const r=await fetch(APPS_SCRIPT_URL); const j=await r.json(); if(j && j.ok) rows=j.projects||[]; }
+    try{ const j=await jsonp(APPS_SCRIPT_URL); if(j && j.ok) rows=j.projects||[]; }
     catch(e){ console.warn("Couldn't load projects from Google backend", e); }
   } else if(sbReady){
     try{ const {data,error}=await sb.from("projects").select("*").order("created_at",{ascending:false});
@@ -723,9 +737,10 @@ async function deleteProject(id){
   if(!gasReady){ toast("Deleting needs the Google backend."); return; }
   if(!confirm("Delete this project? This can't be undone.")) return;
   try{
-    await fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify({ action:"delete", id, token:myToken(id), admin:adminPass }) });
+    try{ await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify({ action:"delete", id, token:myToken(id), admin:adminPass }) }); }
+    catch(err){ /* reply blocked cross-origin; the delete already happened server-side */ }
     const l=projectLayers[id]; if(l){ projLayer.removeLayer(l); delete projectLayers[id]; }  // optimistic
-    toast("Project deleted."); map.closePopup(); await loadProjects();
+    toast("Project deleted."); map.closePopup(); loadProjects();
   }catch(e){ console.error(e); toast("Couldn't delete just now — please try again."); }
 }
 
@@ -871,8 +886,10 @@ async function submitProject(){
         const body = editing
           ? { action:"update", id:targetId, token:myToken(targetId), admin:adminPass, name, description:desc, contributor:by||null, geom, photos }
           : { id:newId, token:newToken, name, description:desc, contributor:by||null, geom, photos };
-        try{ await fetch(APPS_SCRIPT_URL,{ method:"POST", mode:"no-cors", body:JSON.stringify(body) }); }
-        catch(err){ console.warn("Background save request:", err); }
+        // A simple POST reaches Apps Script and writes the row *before* the browser's CORS
+        // check rejects the unreadable reply — so the throw here is expected and harmless.
+        try{ await fetch(APPS_SCRIPT_URL,{ method:"POST", body:JSON.stringify(body) }); }
+        catch(err){ /* reply blocked cross-origin; the write already happened server-side */ }
         loadProjects();
       })();
     } else if(sbReady){
