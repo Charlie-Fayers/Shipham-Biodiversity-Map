@@ -221,7 +221,7 @@
     </div>
     <label class="layer"><input type="checkbox" id="lyr-habitats">
       <span class="swatch" style="background:linear-gradient(90deg,#2E7D32,#9CCC65,#26A69A)"></span>
-      <span class="layer__txt"><b>Habitats &amp; woodland</b><small>coloured by habitat type <span class="count" id="c-habitats"></span></small></span></label>
+      <span class="layer__txt"><b>Habitats</b><small>coloured by habitat type <span class="count" id="c-habitats"></span></small></span></label>
     <label class="layer"><input type="checkbox" id="lyr-flood">
       <span class="swatch" style="background:#5DA8E0"></span>
       <span class="layer__txt"><b>Flood risk</b><small>surface water · EA <span class="count" id="c-flood"></span></small></span></label>
@@ -240,7 +240,7 @@
     </div>
     <div style="border-top:1px solid var(--line);margin:8px 8px 0;padding-top:8px">
       <button id="adminBtn" style="width:100%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px;border-radius:9px;font-size:.73rem;font-weight:600;cursor:pointer;font-family:inherit">Manage as admin</button>
-      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-p</div>
+      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-q</div>
     </div>
   </div>
 </aside>
@@ -318,13 +318,13 @@ const SHIPHAM = { lat:51.3138, lng:-2.7987, zoom:14 };
    service. Two of them have a paste-in slot — copy the layer's service URL from
    your ArcGIS map (…/FeatureServer/0) into the {url:"…"} blanks below.        */
 const CONTEXT_LAYERS = [
-  { key:"habitats", label:"Habitats & woodland", sub:"priority habitats + woodland + trees",
+  { key:"habitats", label:"Habitats", sub:"priority habitats over woodland & trees",
     style:{stroke:false,fillOpacity:.6}, fastClip:true,
     colorBy:["hab","Main_Habit","mainhabs","MAIN_HABIT","habitat","Habitat","HABITAT","IFT_IOA","CATEGORY","Category","Woodland_Type"],
     sources:[ {geojson:"shipham-habitats.geojson"} ] },
   { key:"flood", label:"Flood risk (surface water)", sub:"Environment Agency RoFSW",
     wms:{ url:"https://environment.data.gov.uk/spatialdata/nafra2-risk-of-flooding-from-surface-water/wms",
-          layers:"rofsw", opacity:0.55 } },
+          layers:"rofsw", opacity:0.55, bounds:[[51.283,-2.865],[51.347,-2.735]] } },
   { key:"prow", label:"Public rights of way", sub:"footpaths, bridleways & byways",
     style:{color:"#2EE65C",weight:3,opacity:.98,dashArray:"6 6",fill:false},
     sources:[ {geojson:"shipham-prow.geojson"} ] }
@@ -983,10 +983,10 @@ async function loadContext(cfg){
 }
 CONTEXT_LAYERS.forEach(cfg=>{
   if(cfg.wms){                                   // raster overlay (e.g. EA flood WMS) — no clipping/loading
-    cfg.layer = L.tileLayer.wms(cfg.wms.url, {
-      layers: cfg.wms.layers, format:"image/png", transparent:true, version:"1.1.1",
-      opacity: cfg.wms.opacity!=null?cfg.wms.opacity:0.55, maxZoom:20,
-      attribution:"© Environment Agency" });
+    const wopt={ layers:cfg.wms.layers, format:"image/png", transparent:true, version:"1.1.1",
+      opacity: cfg.wms.opacity!=null?cfg.wms.opacity:0.55, maxZoom:20, attribution:"© Environment Agency" };
+    if(cfg.wms.bounds) wopt.bounds=L.latLngBounds(cfg.wms.bounds);   // only request tiles over Shipham
+    cfg.layer = L.tileLayer.wms(cfg.wms.url, wopt);
     const cbw=document.getElementById("lyr-"+cfg.key);
     if(cbw) cbw.addEventListener("change", e=>{
       e.target.checked ? map.addLayer(cfg.layer) : map.removeLayer(cfg.layer);
