@@ -31,7 +31,7 @@
      the handles sit SW of their point and the polygon look offset NE). */
   .leaflet-editing-icon,.leaflet-touch .leaflet-editing-icon{
     width:14px!important;height:14px!important;margin-left:-7px!important;margin-top:-7px!important;
-    box-sizing:content-box!important;background:#fff;border:2px solid #8E4A77;border-radius:50%}
+    box-sizing:content-box!important;background:#fff;border:2px solid #1565C0;border-radius:50%}
   html,body{height:100%;margin:0}
   body{font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);
     background:var(--paper);overflow:hidden;-webkit-tap-highlight-color:transparent;
@@ -49,7 +49,17 @@
   .brand.collapsed .brand__chev{transform:rotate(-90deg)}
   .brand.collapsed .brand__body{display:none}
   .brand__body{margin-top:8px}
-  .brand__img{width:100%;max-height:150px;object-fit:cover;border-radius:10px;display:block;border:1px solid var(--line)}
+  .brand__img{width:100%;max-height:200px;object-fit:contain;border-radius:10px;display:block;border:1px solid var(--line);background:#fff}
+  .showcase{margin-top:11px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .showcase .sc-head{grid-column:1/-1;font-size:.62rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:1px}
+  .showcase a{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;transition:transform .12s,box-shadow .12s}
+  .showcase a:hover{transform:translateY(-1px);box-shadow:0 3px 9px rgba(0,0,0,.13)}
+  .showcase img{width:100%;height:64px;object-fit:cover;display:block;background:#eee}
+  .showcase .sc-txt{padding:4px 7px 6px}
+  .showcase .sc-sp{font-size:.71rem;font-weight:600;line-height:1.15;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .showcase .sc-by{font-size:.6rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;margin-top:1px}
+  .proj-label{background:rgba(255,255,255,.92);border:1.5px solid #1565C0;color:#0d3c78;font-weight:700;font-size:.68rem;padding:1px 7px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.25);white-space:nowrap}
+  .proj-label.leaflet-tooltip-top::before,.proj-label.leaflet-tooltip-bottom::before,.proj-label.leaflet-tooltip-left::before,.proj-label.leaflet-tooltip-right::before{display:none}
   .brand p{margin:.5rem 0 0;font-size:.77rem;color:var(--muted);line-height:1.3}
 
   .panel{position:absolute;top:14px;right:14px;z-index:1000;width:272px;max-width:calc(100vw - 28px);
@@ -196,6 +206,7 @@
   <div class="brand__body">
     <img class="brand__img" src="shipham-sign.jpg" alt="Shipham village sign" onerror="this.style.display='none'">
     <p>Nature &amp; conservation across Shipham, Rowberrow and Star. Explore what's here — and add your own project.</p>
+    <div id="showcase" class="showcase" hidden></div>
   </div>
 </div>
 
@@ -215,7 +226,7 @@
       <span class="layer__txt"><b>Recent wildlife sightings</b><small>iNaturalist <span class="count" id="c-inat"></span></small></span></label>
     <label class="layer"><input type="checkbox" id="lyr-proj" checked>
       <span class="swatch" style="background:var(--heather)"></span>
-      <span class="layer__txt"><b>Community projects</b><small>Added by people like you <span class="count" id="c-proj"></span></small></span></label>
+      <span class="layer__txt"><b>Conservation projects</b><small>Added by people like you <span class="count" id="c-proj"></span></small></span></label>
 
     <div style="border-top:1px solid var(--line);margin:6px 8px 0;padding:7px 0 1px">
       <small style="display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-left:8px">Context layers</small>
@@ -237,29 +248,30 @@
         <button id="bm-os">OS map</button>
         <button id="bm-sat">Satellite</button>
         <button id="bm-lidar">LiDAR</button>
+        <button id="bm-nls">Old OS (1880s)</button>
       </div>
     </div>
     <div style="border-top:1px solid var(--line);margin:8px 8px 0;padding-top:8px">
       <button id="adminBtn" style="width:100%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px;border-radius:9px;font-size:.73rem;font-weight:600;cursor:pointer;font-family:inherit">Manage as admin</button>
-      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-u</div>
+      <div style="text-align:center;font-size:.62rem;color:var(--muted);margin-top:6px;opacity:.7">build 2026-06-15-x</div>
     </div>
   </div>
 </aside>
 
 <div class="hint" id="hint">
-  <span>Move the map to aim the crosshair, then add each corner of your area</span>
+  <span>Aim the crosshair, tap “Add point”. One point = a single spot; 3+ = an area.</span>
   <button id="hintAdd">Add point</button>
   <button id="hintUndo">Undo</button>
   <button id="hintFinish">Finish</button>
   <button id="hintCancel">Cancel</button>
 </div>
 <div id="xhair" aria-hidden="true"><svg width="46" height="46" viewBox="0 0 46 46">
-  <circle cx="23" cy="23" r="10" fill="none" stroke="#8E4A77" stroke-width="2.5"/>
-  <line x1="23" y1="1" x2="23" y2="13" stroke="#8E4A77" stroke-width="2.5"/>
-  <line x1="23" y1="33" x2="23" y2="45" stroke="#8E4A77" stroke-width="2.5"/>
-  <line x1="1" y1="23" x2="13" y2="23" stroke="#8E4A77" stroke-width="2.5"/>
-  <line x1="33" y1="23" x2="45" y2="23" stroke="#8E4A77" stroke-width="2.5"/>
-  <circle cx="23" cy="23" r="2.5" fill="#8E4A77"/>
+  <circle cx="23" cy="23" r="10" fill="none" stroke="#1565C0" stroke-width="2.5"/>
+  <line x1="23" y1="1" x2="23" y2="13" stroke="#1565C0" stroke-width="2.5"/>
+  <line x1="23" y1="33" x2="23" y2="45" stroke="#1565C0" stroke-width="2.5"/>
+  <line x1="1" y1="23" x2="13" y2="23" stroke="#1565C0" stroke-width="2.5"/>
+  <line x1="33" y1="23" x2="45" y2="23" stroke="#1565C0" stroke-width="2.5"/>
+  <circle cx="23" cy="23" r="2.5" fill="#1565C0"/>
 </svg></div>
 
 <button class="fab" id="addBtn">
@@ -357,9 +369,9 @@ const osOutdoor = osReady ? L.tileLayer(`https://api.os.uk/maps/raster/v1/zxy/Ou
 const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
       { subdomains:"abcd", maxZoom:20, attribution:"&copy; OpenStreetMap &copy; CARTO" });
 
-/* EA LIDAR Composite hillshade (optional terrain basemap).
-   Esri ImageServer rendered per-tile via exportImage, reprojected to Web Mercator. */
-const LIDAR_URL = "https://environment.data.gov.uk/image/rest/services/SURVEY/LIDAR_Composite_1m_DTM_2020_Hillshade/ImageServer/exportImage";
+/* EA LIDAR Composite 1 m DTM 2022 (optional terrain basemap).
+   Esri MapServer rendered per-tile via export, reprojected to Web Mercator. */
+const LIDAR_URL = "https://environment.data.gov.uk/image/rest/services/SURVEY/LIDARCompositeDTM1m2022/MapServer/export";
 const LidarTileLayer = L.TileLayer.extend({
   getTileUrl: function(coords){
     const b=this._tileCoordsToBounds(coords);
@@ -367,10 +379,13 @@ const LidarTileLayer = L.TileLayer.extend({
     const ne=L.CRS.EPSG3857.project(b.getNorthEast());
     const s=this.getTileSize();
     return `${LIDAR_URL}?bbox=${sw.x},${sw.y},${ne.x},${ne.y}&bboxSR=3857&imageSR=3857`
-      + `&size=${s.x},${s.y}&format=png&interpolation=RSP_BilinearInterpolation&f=image`;
+      + `&size=${s.x},${s.y}&format=png&transparent=false&dpi=96&f=image`;
   }
 });
 const lidarLayer = new LidarTileLayer("", { maxZoom:20, attribution:"LIDAR &copy; Environment Agency (OGL v3)" });
+/* National Library of Scotland — OS 25-inch to the mile (Somerset sheets, surveyed 1880s). */
+const nlsLayer = L.tileLayer("https://mapseries-tilesets.s3.amazonaws.com/25_inch/somerset/{z}/{x}/{y}.png",
+  { maxZoom:20, maxNativeZoom:20, attribution:"Historical OS 25-inch &copy; National Library of Scotland (CC-BY)" });
 
 let currentBase = [];
 function setBase(mode){
@@ -379,13 +394,15 @@ function setBase(mode){
   if(mode==="os" && osOutdoor){ osOutdoor.setOpacity(1); add(osOutdoor); }
   else if(mode==="sat"){ add(satLayer); }
   else if(mode==="lidar"){ add(lidarLayer); }
+  else if(mode==="nls"){ add(nlsLayer); }
   else { add(satLayer); if(osOutdoor){ osOutdoor.setOpacity(.55); add(osOutdoor); } else add(labels); }
-  ["satos","os","sat","lidar"].forEach(m=>document.getElementById("bm-"+m).classList.toggle("active", m===mode));
+  ["satos","os","sat","lidar","nls"].forEach(m=>document.getElementById("bm-"+m).classList.toggle("active", m===mode));
 }
 document.getElementById("bm-satos").onclick=()=>setBase("satos");
 document.getElementById("bm-os").onclick=()=>{ if(!osOutdoor) toast("Add a free OS key (see README) to switch on OS maps."); setBase(osOutdoor?"os":"satos"); };
 document.getElementById("bm-sat").onclick=()=>setBase("sat");
 document.getElementById("bm-lidar").onclick=()=>setBase("lidar");
+document.getElementById("bm-nls").onclick=()=>setBase("nls");
 setBase("satos");
 
 /* ---------- Feature layers ---------- */
@@ -393,9 +410,13 @@ const sssiLayer = L.geoJSON(null, { style:()=>({color:"#D81B83",weight:2,fillCol
   onEachFeature:(f,l)=>bindDesignation(f,l,"SSSI","#D81B83") }).addTo(map);
 const inatCluster = L.markerClusterGroup({ maxClusterRadius:45, showCoverageOnHover:false }).addTo(map);
 let inatTiles = null;   // fallback tile layer, used only if the live API can't be reached
-const projLayer = L.geoJSON(null, { style:()=>({color:"#8E4A77",weight:2.5,fillColor:"#8E4A77",fillOpacity:.22}),
+const projLayer = L.geoJSON(null, { style:()=>({color:"#1565C0",weight:2.5,fillColor:"#2196F3",fillOpacity:.28}),
+  pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:8,color:"#fff",weight:2,fillColor:"#1565C0",fillOpacity:1}),
   onEachFeature:(f,l)=>{ l._projData=f.properties; if(f.properties.id) projectLayers[f.properties.id]=l;
-    l.bindPopup(projectPopup(f.properties)); } }).addTo(map);
+    l.bindPopup(projectPopup(f.properties));
+    if(f.properties.name){ const isPt=f.geometry&&f.geometry.type==="Point";
+      l.bindTooltip(esc(f.properties.name),{permanent:true,direction:isPt?"top":"center",
+        className:"proj-label",offset:isPt?[0,-11]:[0,0]}); } } }).addTo(map);
 const parishGroup = L.layerGroup().addTo(map);
 
 bindToggle("lyr-parish", parishGroup);
@@ -423,15 +444,42 @@ function bindDesignation(f,l,kind,colour){
     <h3>${esc(name)}</h3><div class="loading"><span class="spin"></span> Loading details…</div></div>`,
     {minWidth:230, maxWidth:230});
 }
+/* Per-site overrides: correct Wikipedia titles where the auto-guess hits the wrong
+   article, or curated content from a better source (e.g. Somerset Wildlife Trust). */
+const SITE_OVERRIDES = {
+  "perch":  { wiki:"Perch SSSI" },
+  "bourne": { wiki:"Bourne SSSI, Avon" },
+  "cheddar complex": {
+    img:"https://www.somersetwildlife.org/sites/default/files/styles/large/public/2019-11/DSCN2625_NEF%20Jeff%20Bevan%20%281%29.jpg?itok=IofkS4Wm",
+    credit:"Black Rock — Jeff Bevan / Somerset Wildlife Trust",
+    text:"Two Somerset Wildlife Trust reserves — Long Wood and Velvet Bottom — make up this roughly 110-hectare complex high in the Mendip Hills near Cheddar Gorge. Long Wood is ash-and-hazel woodland whose floor fills with bluebells, wild garlic and early-purple orchids in spring; Velvet Bottom is a dry valley of unusual lead-tolerant “calaminarian” grassland on old mine spoil, good for adders, lizards and butterflies. Open all year; best April to August.",
+    link:"https://www.somersetwildlife.org/nature-reserves/cheddar-complex",
+    linkLabel:"More at Somerset Wildlife Trust →" }
+};
+function siteOverride(name){
+  let k=String(name||"").toLowerCase().replace(/\bsssi\b/g,"").replace(/[()]/g," ").replace(/\s+/g," ").trim();
+  if(SITE_OVERRIDES[k]) return SITE_OVERRIDES[k];
+  k=k.replace(/^the\s+/,"");
+  return SITE_OVERRIDES[k]||null;
+}
 async function enrichDesignation(popup, d){
+  const ov=siteOverride(d.name);
+  let h=`<div class="pop"><span class="tag" style="background:${d.colour}1a;color:${d.colour}">${esc(d.kind)}</span><h3>${esc(d.name)}</h3>`;
+  if(ov && ov.text){                              // curated static content
+    if(ov.img) h+=`<img class="pop-hero" src="${esc(ov.img)}" alt="" onerror="this.style.display='none'">`;
+    h+=`<p>${esc(ov.text)}</p>`;
+    if(ov.credit) h+=`<p class="by">${esc(ov.credit)}</p>`;
+    h+=`<a class="link" href="${esc(ov.link)}" target="_blank" rel="noopener">${esc(ov.linkLabel||"Find out more →")}</a>`;
+    popup.setContent(h+"</div>"); return;
+  }
   const base=d.name.replace(/\s*\(?\s*sssi\s*\)?\s*$/i,"").replace(/\s*local nature reserve$/i,"").trim();
+  const titles = (ov && ov.wiki) ? [ov.wiki] : [base, d.name];
   let wiki=null;
-  for(const t of [base, d.name]){
+  for(const t of titles){
     try{ const r=await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(t));
       if(r.ok){ const j=await r.json(); if(j && j.extract && j.type!=="disambiguation"){ wiki=j; break; } } }catch(e){}
   }
   const img=wiki?.thumbnail?.source, extract=wiki?.extract, page=wiki?.content_urls?.desktop?.page;
-  let h=`<div class="pop"><span class="tag" style="background:${d.colour}1a;color:${d.colour}">${esc(d.kind)}</span><h3>${esc(d.name)}</h3>`;
   if(img) h+=`<img class="pop-hero" src="${esc(img)}" alt="">`;
   h+= extract ? `<p>${esc(extract)}</p>`
              : `<p class="by">A designated protected area, mapped from Natural England open data.</p>`;
@@ -452,7 +500,7 @@ function projectPopup(p){
   const controls = canEdit
     ? `<div class="popbtns"><button type="button" class="popbtn" data-edit="${esc(p.id)}">Edit</button>`
       + `<button type="button" class="popbtn danger" data-del="${esc(p.id)}">Delete</button></div>` : "";
-  return `<div class="pop"><span class="tag" style="background:#8E4A771a;color:#8E4A77">Community project</span>
+  return `<div class="pop"><span class="tag" style="background:#1565C01a;color:#1565C0">Conservation project</span>
     <h3>${esc(p.name)}</h3>${p.description?`<p>${esc(p.description)}</p>`:""}
     ${p.contributor?`<p class="by">By ${esc(p.contributor)}</p>`:""}
     ${photos?`<div class="photos">${photos}</div>`:""}${controls}</div>`;
@@ -561,6 +609,20 @@ function inatFallback(){
   const el=document.getElementById("c-inat"); if(el) el.textContent="· shown as layer";
   toast("Wildlife sightings are showing as a map layer — live details couldn't load right now.");
 }
+const inatShowcase=[]; let showcaseDone=false;
+function renderShowcase(){
+  const box=document.getElementById("showcase"); if(!box) return;
+  if(!inatShowcase.length){ box.hidden=true; return; }
+  const pool=inatShowcase.slice();
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  const pick=pool.slice(0,4);
+  box.innerHTML='<div class="sc-head">Recent sightings nearby</div>'+pick.map(o=>
+    `<a href="${esc(o.uri)}" target="_blank" rel="noopener" title="${esc(o.common)} — by ${esc(o.recorder)}">`
+    +`<img src="${esc(o.thumb)}" alt="" loading="lazy" onerror="this.parentNode.style.display='none'">`
+    +`<div class="sc-txt"><span class="sc-sp">${esc(o.common)}</span><span class="sc-by">by ${esc(o.recorder)}</span></div></a>`
+  ).join("");
+  box.hidden=false;
+}
 function addINatObs(o){
   if(!o.geojson || seen.inat.has(o.id)) return;
   const [lng,lat]=o.geojson.coordinates;
@@ -575,13 +637,23 @@ function addINatObs(o){
     <p class="by">Seen ${esc(o.observed_on||"")} · ${esc(o.user?.login||"someone")}</p>
     <a class="link" href="${esc(o.uri)}" target="_blank" rel="noopener">View on iNaturalist →</a></div>`);
   inatCluster.addLayer(m);
+  if(thumb) inatShowcase.push({ common, recorder:(o.user?.name||o.user?.login||"someone"), thumb, uri:o.uri });
 }
+let inatLoaded=false;
 async function loadINat(b){
-  const baseU=`https://api.inaturalist.org/v1/observations?nelat=${b.getNorth()}&nelng=${b.getEast()}`
-    +`&swlat=${b.getSouth()}&swlng=${b.getWest()}&per_page=200&order=desc&order_by=created_at`
+  if(inatLoaded) return;                          // fixed parish box — only need to load once
+  // Query a stable box around the parish (not the panned view), so a nearby iNat
+  // hotspot like Cheddar Gorge can't crowd out Shipham records in the result cap.
+  let W,S,E,N;
+  if(parishBuffer && typeof turf!=="undefined"){
+    try{ const bb=turf.bbox(parishBuffer); W=bb[0];S=bb[1];E=bb[2];N=bb[3]; }catch(e){}
+  }
+  if(W==null){ W=b.getWest();S=b.getSouth();E=b.getEast();N=b.getNorth(); }
+  const baseU=`https://api.inaturalist.org/v1/observations?nelat=${N}&nelng=${E}`
+    +`&swlat=${S}&swlng=${W}&per_page=200&order=desc&order_by=observed_on`
     +`&geo=true&verifiable=true`;
   let got=false;
-  for(let page=1; page<=5; page++){             // up to 1000 records in view
+  for(let page=1; page<=5; page++){             // up to 1000 records in the parish box
     let j;
     try{ j=await fetchWithRetry(baseU+`&page=${page}`); }
     catch(e){ if(page===1){ console.warn("iNaturalist unreachable — using tile fallback.", e); inatFallback(); return; } break; }
@@ -592,7 +664,8 @@ async function loadINat(b){
     res.forEach(addINatObs);
     if(res.length<200) break;                   // reached the last page
   }
-  if(got) setCount("c-inat", seen.inat.size);
+  if(got){ inatLoaded=true; setCount("c-inat", seen.inat.size);
+    if(!showcaseDone && inatShowcase.length){ showcaseDone=true; renderShowcase(); } }
 }
 let loading=false;
 async function loadArea(force){
@@ -712,15 +785,17 @@ function startEdit(id){
   const l=projectLayers[id]; if(!l) return;
   if(!gasReady){ toast("Editing needs the Google backend."); return; }
   const p=l._projData||{};
+  const isPoint = l.feature && l.feature.geometry && l.feature.geometry.type==="Point";
   map.closePopup();
   editId=id; editLayer=l;
-  try{ l.editing.enable(); }catch(e){}
-  try{ map.fitBounds(l.getBounds(),{padding:[60,60],maxZoom:17}); }catch(e){}
+  if(!isPoint){ try{ l.editing.enable(); }catch(e){} }
+  try{ if(isPoint) map.setView(l.getLatLng(), Math.max(map.getZoom(),16));
+       else map.fitBounds(l.getBounds(),{padding:[60,60],maxZoom:17}); }catch(e){}
   document.getElementById("f-name").value=p.name||"";
   document.getElementById("f-desc").value=p.description||"";
   document.getElementById("f-by").value=p.contributor||"";
   document.getElementById("drawerTitle").textContent="Edit project";
-  document.getElementById("step1").innerHTML="<b>1</b> Adjust the area (drag the dots)";
+  document.getElementById("step1").innerHTML = isPoint ? "<b>1</b> Single location" : "<b>1</b> Adjust the area (drag the dots)";
   document.getElementById("step1").classList.add("done");
   document.getElementById("addBtn").style.display="none";
   scrim.classList.add("show"); drawer.classList.add("show");
@@ -782,7 +857,7 @@ document.getElementById("storageNote").innerHTML = backendReady
 document.getElementById("addBtn").addEventListener("click", startDraw);
 function startDraw(){ closeDrawer(); resetTemp(); clearDrawPreview();
   drawPts=[];
-  drawPreview = L.polygon([], {color:"#8E4A77",weight:2.5,fillColor:"#8E4A77",fillOpacity:.18,dashArray:"5 5"}).addTo(map);
+  drawPreview = L.polygon([], {color:"#1565C0",weight:2.5,fillColor:"#2196F3",fillOpacity:.2,dashArray:"5 5"}).addTo(map);
   drawDots = L.layerGroup().addTo(map);
   xhair.classList.add("show");
   document.getElementById("hint").classList.add("show");
@@ -791,7 +866,7 @@ function startDraw(){ closeDrawer(); resetTemp(); clearDrawPreview();
 function redrawDrawPreview(){
   if(drawPreview) drawPreview.setLatLngs(drawPts);
   if(drawDots){ drawDots.clearLayers();
-    drawPts.forEach(ll=> L.circleMarker(ll,{radius:5,color:"#fff",weight:2,fillColor:"#8E4A77",fillOpacity:1}).addTo(drawDots)); }
+    drawPts.forEach(ll=> L.circleMarker(ll,{radius:5,color:"#fff",weight:2,fillColor:"#1565C0",fillOpacity:1}).addTo(drawDots)); }
 }
 function clearDrawPreview(){
   if(drawPreview){ map.removeLayer(drawPreview); drawPreview=null; }
@@ -804,10 +879,17 @@ document.getElementById("hintAdd").addEventListener("click", ()=>{
 document.getElementById("hintUndo").addEventListener("click", ()=>{
   if(!drawPts.length) return; drawPts.pop(); redrawDrawPreview(); });
 document.getElementById("hintFinish").addEventListener("click", ()=>{
-  if(drawPts.length<3){ toast("Add at least 3 points to make an area."); return; }
+  const n=drawPts.length;
+  if(n===0){ toast("Aim the crosshair and tap “Add point” first."); return; }
+  if(n===2){ toast("Use 1 point for a single spot, or add a 3rd for an area."); return; }
   const pts=drawPts.slice(); clearDrawPreview();
-  tempLayer=L.polygon(pts,{color:"#8E4A77",weight:2.5,fillColor:"#8E4A77",fillOpacity:.22}).addTo(map);
-  try{ map.fitBounds(tempLayer.getBounds(),{padding:[60,60],maxZoom:17}); }catch(e){}
+  if(n===1){
+    tempLayer=L.circleMarker(pts[0],{radius:9,color:"#fff",weight:2,fillColor:"#1565C0",fillOpacity:1}).addTo(map);
+    try{ map.setView(pts[0], Math.max(map.getZoom(),16)); }catch(e){}
+  } else {
+    tempLayer=L.polygon(pts,{color:"#1565C0",weight:2.5,fillColor:"#2196F3",fillOpacity:.28}).addTo(map);
+    try{ map.fitBounds(tempLayer.getBounds(),{padding:[60,60],maxZoom:17}); }catch(e){}
+  }
   document.getElementById("step1").classList.add("done");
   openDrawer();
 });
