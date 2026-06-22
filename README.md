@@ -12,6 +12,13 @@ The data layers refresh as you pan and zoom the map.
 
 ---
 
+## Live URL
+
+```
+https://clarksonwoods.github.io/Shipham-Biodiversity-Map/
+```
+---
+
 ## 1. Put it online (5 minutes, free)
 
 The map is a single file, `index.html`, so GitHub Pages can host it directly.
